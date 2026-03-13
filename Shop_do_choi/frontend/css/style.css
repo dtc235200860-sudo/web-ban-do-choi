@@ -1,0 +1,16 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body { box-sizing: border-box; }
+#app { height: 100%; display: flex; flex-direction: column; }
+.main-content { flex: 1; overflow-y: auto; }
+.toy-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.toy-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
+.btn-primary { background: linear-gradient(135deg, #FF6B6B, #FF8E72); transition: all 0.3s ease; }
+.btn-primary:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4); }
+.badge-sale { background: linear-gradient(135deg, #FF6B6B, #FF8E72); }
+.star-rating { color: #FFD700; }
+.fade-in { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-overlay { background: rgba(0,0,0,0.5); }
+.flash-sale-badge { animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
