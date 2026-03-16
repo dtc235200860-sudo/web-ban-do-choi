@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 import os
 import posixpath
+import re
 import sqlite3
 import sys
 import time
 import traceback
 import urllib.parse
+import unicodedata
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -138,6 +140,7 @@ def db_init() -> None:
 
         # Auto-import products from local toy images (idempotent via sourceImage).
         db_import_products_from_images(conn)
+        db_upgrade_imported_product_names(conn)
         conn.commit()
 
 
@@ -385,6 +388,115 @@ def iter_toy_image_files() -> list[tuple[str, str]]:
     return out
 
 
+def strip_diacritics(text: str) -> str:
+    text = str(text or "")
+    return "".join(ch for ch in unicodedata.normalize("NFD", text) if unicodedata.category(ch) != "Mn")
+
+
+def beautify_product_name(stem: str) -> str:
+    """
+    Convert a filename stem like "gau-bong-baby-teddy-trang" into a nicer Vietnamese name
+    with diacritics for common toy terms.
+    """
+    raw = str(stem or "")
+    raw = re.sub(r"[_-]+", " ", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    if not raw:
+        return "Sản phẩm đồ chơi"
+
+    s = raw.lower()
+    phrase_map: list[tuple[str, str]] = [
+        ("bup be", "búp bê"),
+        ("gau bong", "gấu bông"),
+        ("mo hinh", "mô hình"),
+        ("xep hinh", "xếp hình"),
+        ("lap rap", "lắp ráp"),
+        ("do choi", "đồ chơi"),
+        ("dieu khien", "điều khiển"),
+        ("toc do", "tốc độ"),
+        ("khoa hoc", "khoa học"),
+        ("cong chua", "công chúa"),
+        ("tre em", "trẻ em"),
+        ("ti hon", "tí hon"),
+        ("long xu", "lông xù"),
+        ("thoi trang", "thời trang"),
+    ]
+    for k, v in phrase_map:
+        s = re.sub(rf"\b{re.escape(k)}\b", v, s)
+
+    token_map: dict[str, str] = {
+        "trang": "trắng",
+        "den": "đen",
+        "hong": "hồng",
+        "vang": "vàng",
+        "nau": "nâu",
+        "tim": "tím",
+        "xanh": "xanh",
+        "cam": "cam",
+    }
+    brand_map: dict[str, str] = {
+        "rc": "RC",
+        "mom": "MOM",
+        "lego": "Lego",
+        "barbie": "Barbie",
+        "stem": "STEM",
+    }
+
+    small_words = {"và", "cho", "của", "với", "từ", "đến", "theo", "trong", "ngoài", "là", "ở", "có"}
+
+    words = s.split()
+    out_words: list[str] = []
+    for i, w in enumerate(words):
+        if not w:
+            continue
+        if w in brand_map:
+            out_words.append(brand_map[w])
+            continue
+        if any(ch.isdigit() for ch in w) or (len(w) <= 5 and w.isupper()):
+            out_words.append(w)
+            continue
+        if w in token_map:
+            w = token_map[w]
+        if w in small_words and i != 0:
+            out_words.append(w)
+            continue
+        out_words.append(w[:1].upper() + w[1:].lower())
+
+    return " ".join(out_words).strip() or "Sản phẩm đồ chơi"
+
+
+def db_upgrade_imported_product_names(conn: sqlite3.Connection) -> int:
+    """
+    Backfill/upgrade names for imported products (those with sourceImage) so Vietnamese terms show diacritics.
+    Only updates when the difference is accents/case (same base letters).
+    """
+    updated = 0
+    for p in db_get_products(conn):
+        source = str(p.get("sourceImage") or "")
+        if not source:
+            continue
+
+        fname = Path(source).name
+        stem = Path(fname).stem.replace("-", " ").replace("_", " ").strip()
+        if not stem:
+            continue
+
+        new_name = beautify_product_name(stem)
+        old_name = str(p.get("name") or "")
+        if not old_name or old_name == new_name:
+            continue
+
+        if strip_diacritics(old_name).strip().lower() != strip_diacritics(new_name).strip().lower():
+            continue
+
+        p2 = dict(p)
+        p2["name"] = new_name
+        db_put_product(conn, p2)
+        updated += 1
+
+    return updated
+
+
 def db_import_products_from_images(conn: sqlite3.Connection) -> dict[str, Any]:
     files = iter_toy_image_files()
     if not files:
@@ -415,9 +527,8 @@ def db_import_products_from_images(conn: sqlite3.Connection) -> dict[str, Any]:
 
         category = cat_map.get(str(cat_dir).lower(), "Khác")
         fname = Path(rel_posix).name
-        name = Path(fname).stem.replace("-", " ").replace("_", " ").strip()
-        if not name:
-            name = "Sản phẩm đồ chơi"
+        stem = Path(fname).stem.replace("-", " ").replace("_", " ").strip()
+        name = beautify_product_name(stem)
 
         h = abs(hash(rel_posix))
         price = base_price.get(category, 199000) + (h % 10) * 10000
@@ -515,6 +626,7 @@ def db_seed_if_empty(conn: sqlite3.Connection) -> dict[str, Any]:
         db_put_product(conn, p)
 
     import_result = db_import_products_from_images(conn)
+    db_upgrade_imported_product_names(conn)
 
     for c in SAMPLE_COUPONS:
         conn.execute(
@@ -639,6 +751,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             if parsed.path == "/api/import-images":
                 result = db_import_products_from_images(conn)
+                db_upgrade_imported_product_names(conn)
                 conn.commit()
                 return json_response(self, 200, {"ok": True, "data": result})
 

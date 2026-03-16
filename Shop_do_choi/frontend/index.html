@@ -6,7 +6,7 @@
     <title>ToyLand - Cửa Hàng Đồ Chơi</title>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <script src="js/script.js?v=20260312" defer></script>
+    <script src="js/script.js?v=20260316" defer></script>
   </head>
   <body class="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 h-full">
     <div id="app" class="h-full">
@@ -482,11 +482,13 @@
             </div>
           </div>
         </div>
-        <div id="chat-quick-options" class="px-3 py-2 space-y-2 border-t bg-white">
-          <button onclick="sendQuickMessage('Tôi muốn tìm sản phẩm')" class="w-full text-left text-xs bg-purple-50 text-purple-700 p-2 rounded hover:bg-purple-100 transition">🔍 Tìm sản phẩm</button>
-          <button onclick="sendQuickMessage('Hỏi về đơn hàng của tôi')" class="w-full text-left text-xs bg-blue-50 text-blue-700 p-2 rounded hover:bg-blue-100 transition">📦 Theo dõi đơn hàng</button>
-          <button onclick="sendQuickMessage('Mã giảm giá hiện có')" class="w-full text-left text-xs bg-orange-50 text-orange-700 p-2 rounded hover:bg-orange-100 transition">🎁 Khuyến mãi</button>
-          <button onclick="requestAgent()" class="w-full text-left text-xs bg-red-50 text-red-700 p-2 rounded hover:bg-red-100 transition">👤 Gọi agent</button>
+        <div id="chat-quick-options" class="px-3 py-2 border-t bg-white">
+          <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <button onclick="sendQuickMessage('Tôi muốn tìm sản phẩm')" class="shrink-0 inline-flex items-center gap-2 text-xs bg-purple-50 text-purple-700 px-3 py-2 rounded-full hover:bg-purple-100 transition whitespace-nowrap">🔍 Tìm sản phẩm</button>
+            <button onclick="sendQuickMessage('Hỏi về đơn hàng của tôi')" class="shrink-0 inline-flex items-center gap-2 text-xs bg-blue-50 text-blue-700 px-3 py-2 rounded-full hover:bg-blue-100 transition whitespace-nowrap">📦 Đơn hàng</button>
+            <button onclick="sendQuickMessage('Mã giảm giá hiện có')" class="shrink-0 inline-flex items-center gap-2 text-xs bg-orange-50 text-orange-700 px-3 py-2 rounded-full hover:bg-orange-100 transition whitespace-nowrap">🎁 Khuyến mãi</button>
+            <button onclick="requestAgent()" class="shrink-0 inline-flex items-center gap-2 text-xs bg-red-50 text-red-700 px-3 py-2 rounded-full hover:bg-red-100 transition whitespace-nowrap">👤 Gọi agent</button>
+          </div>
         </div>
         <div class="border-t p-3 bg-white flex gap-2">
           <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." class="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" onkeypress="handleChatKeypress(event)" />

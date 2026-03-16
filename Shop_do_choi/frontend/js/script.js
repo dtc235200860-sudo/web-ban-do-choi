@@ -12,6 +12,8 @@ let allFlashSales = [];
 let notifications = [];
 let currentPage = "home";
 let categories = ["Xếp Hình", "Xe", "Búp Bê", "Khoa Học"];
+let compareList = [];
+let chatHistory = [];
 
 let flashSaleEndMs = Date.now() + 60 * 60 * 1000;
 
@@ -363,7 +365,14 @@ function displayCart() {
           const pNow = discountedPrice(item);
           return `
         <tr class="border-b py-4">
-          <td class="py-4"><span class="text-3xl mr-3">${item.image || "🎁"}</span>${item.name}</td>
+          <td class="py-4">
+            ${
+              String(item.image || "").startsWith("/media/")
+                ? `<img src="${item.image}" alt="${escapeHtml(item.name)}" class="inline-block w-12 h-12 object-contain align-middle mr-3 bg-white rounded" loading="lazy" />`
+                : `<span class="text-3xl mr-3 align-middle">${item.image || "🎁"}</span>`
+            }
+            <span class="align-middle">${item.name}</span>
+          </td>
           <td class="text-center">${money(pNow)}</td>
           <td class="text-center">
             <input type="number" value="${item.quantity}" min="1" onchange="updateCartItem('${item.__backendId}', this.value)" class="w-16 px-2 py-1 border rounded text-center">
@@ -777,25 +786,513 @@ function toggleChatbox() {
   if (!chatWindow.classList.contains("hidden")) document.getElementById("chat-input").focus();
 }
 
-function addChatMessage(sender, text) {
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function saveChatHistory() {
+  try {
+    localStorage.setItem("chatHistory", JSON.stringify(chatHistory.slice(-200)));
+  } catch {
+    // ignore
+  }
+}
+
+function loadChatHistory() {
+  try {
+    const raw = localStorage.getItem("chatHistory");
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) chatHistory = parsed.slice(-200);
+  } catch {
+    chatHistory = [];
+  }
+
+  try {
+    const raw = localStorage.getItem("compareList");
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) compareList = parsed.filter((x) => typeof x === "string").slice(-3);
+  } catch {
+    compareList = [];
+  }
+
+  if (!chatHistory.length) return;
+  const messagesDiv = document.getElementById("chat-messages");
+  if (!messagesDiv) return;
+  messagesDiv.innerHTML = "";
+  for (const m of chatHistory) {
+    addChatMessage(m.sender, m.text, { html: !!m.html, persist: false });
+  }
+}
+
+function addChatMessage(sender, text, { html = false, persist = true } = {}) {
   const messagesDiv = document.getElementById("chat-messages");
   const messageDiv = document.createElement("div");
   messageDiv.className = "flex gap-3 " + (sender === "user" ? "justify-end" : "");
+  const safe = html ? String(text || "") : escapeHtml(text);
   messageDiv.innerHTML =
     sender === "user"
-      ? `<div class="bg-purple-600 text-white rounded-lg p-3 shadow-sm max-w-xs"><p class="text-sm">${text}</p></div>`
-      : `<div class="text-2xl">🤖</div><div class="bg-white rounded-lg p-3 shadow-sm max-w-xs"><p class="text-sm text-gray-700">${text}</p></div>`;
+      ? `<div class="bg-purple-600 text-white rounded-lg p-3 shadow-sm max-w-xs"><p class="text-sm break-words">${safe}</p></div>`
+      : `<div class="text-2xl">🤖</div><div class="bg-white rounded-lg p-3 shadow-sm max-w-xs"><div class="text-sm text-gray-700 break-words">${safe}</div></div>`;
   messagesDiv.appendChild(messageDiv);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+  if (persist) {
+    chatHistory.push({ sender, text: String(text || ""), html: !!html, ts: Date.now() });
+    if (chatHistory.length > 200) chatHistory = chatHistory.slice(-200);
+    saveChatHistory();
+  }
+}
+
+function normalizeText(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractAge(text) {
+  const s = normalizeText(text);
+  // "bé 5 tuổi", "5 tuoi"
+  const m1 = s.match(/(\d{1,2})\s*(tuoi|t)\b/);
+  if (m1) return { years: Number(m1[1]) };
+  // "12 tháng", "12 thang"
+  const m2 = s.match(/(\d{1,2})\s*(thang)\b/);
+  if (m2) return { months: Number(m2[1]) };
+  return null;
+}
+
+function extractBudgetVnd(text) {
+  const s = normalizeText(text);
+  // 100k / 200k
+  const mk = s.match(/(\d{1,4})\s*k\b/);
+  if (mk) return Number(mk[1]) * 1000;
+
+  // 1tr / 2tr
+  const mtr = s.match(/(\d{1,2})\s*(tr|trieu)\b/);
+  if (mtr) return Number(mtr[1]) * 1000000;
+
+  // 100000 / 100.000 / 100,000
+  const mnum = String(text || "").match(/(\d{1,3}([.,]\d{3})+|\d{5,})/);
+  if (mnum) {
+    const v = mnum[1].replace(/[.,]/g, "");
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 10000) return n;
+  }
+  return null;
+}
+
+function getProductDeepLink(id) {
+  try {
+    return `${location.origin}/?product=${encodeURIComponent(id)}`;
+  } catch {
+    return `/?product=${encodeURIComponent(id)}`;
+  }
+}
+
+function chatOpenProduct(id) {
+  try {
+    viewProduct(id);
+    const el = document.getElementById("chatbox-window");
+    if (el && el.classList.contains("hidden")) el.classList.remove("hidden");
+  } catch {
+    // ignore
+  }
+}
+
+function findProductsByText(query, limit = 5) {
+  const q = normalizeText(query);
+  if (!q) return [];
+
+  // match by id
+  const exactById = (allProducts || []).find((p) => normalizeText(p.__backendId) === q);
+  if (exactById) return [exactById];
+
+  const scored = (allProducts || [])
+    .map((p) => {
+      const name = normalizeText(p.name);
+      const cat = normalizeText(p.category);
+      let score = 0;
+      if (name === q) score += 100;
+      if (name.includes(q)) score += 50;
+      if (cat.includes(q)) score += 10;
+      score += Number(p.rating || 0);
+      return { p, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.p);
+
+  return scored;
+}
+
+function formatProductListHtml(items, { showCompare = true } = {}) {
+  if (!items.length) return "<div>Không tìm thấy sản phẩm phù hợp.</div>";
+  return `
+    <div class="space-y-2">
+      ${items
+        .map((p) => {
+          const link = getProductDeepLink(p.__backendId);
+          const price = money(discountedPrice(p));
+          return `
+            <div class="border rounded-lg p-2 bg-gray-50">
+              <div class="font-semibold">${escapeHtml(p.name)}</div>
+              <div class="text-xs text-gray-600">${escapeHtml(p.category || "")} • ${price} • ⭐ ${Number(p.rating || 0).toFixed(1)}</div>
+              <div class="mt-2 flex gap-2 flex-wrap">
+                <button class="px-2 py-1 text-xs bg-purple-600 text-white rounded" onclick="chatOpenProduct('${p.__backendId}')">Xem</button>
+                <a class="px-2 py-1 text-xs bg-gray-200 rounded" href="${link}" target="_blank" rel="noopener">Link</a>
+                ${showCompare ? `<button class="px-2 py-1 text-xs bg-blue-600 text-white rounded" onclick="chatAddCompare('${p.__backendId}')">So sánh</button>` : ""}
+              </div>
+            </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
+function chatAddCompare(id) {
+  const p = (allProducts || []).find((x) => x.__backendId === id);
+  if (!p) return;
+  if (!compareList.includes(id)) compareList.push(id);
+  if (compareList.length > 3) compareList = compareList.slice(-3);
+  try {
+    localStorage.setItem("compareList", JSON.stringify(compareList));
+  } catch {
+    // ignore
+  }
+  addChatMessage("bot", `Đã thêm vào so sánh: ${p.name}. Gõ "so sánh" để xem bảng so sánh.`, { html: false });
+}
+
+function chatCompareNow() {
+  const items = compareList.map((id) => (allProducts || []).find((p) => p.__backendId === id)).filter(Boolean);
+  if (items.length < 2) return { text: "Bạn cần chọn ít nhất 2 sản phẩm để so sánh. Bạn có thể gõ: 'so sánh <tên sản phẩm A> và <tên sản phẩm B>' hoặc bấm nút So sánh ở từng sản phẩm.", html: false };
+
+  const rows = items
+    .map((p) => {
+      const link = getProductDeepLink(p.__backendId);
+      return `
+        <tr class="border-b">
+          <td class="px-3 py-2 font-semibold">${escapeHtml(p.name)}</td>
+          <td class="px-3 py-2">${escapeHtml(p.category || "")}</td>
+          <td class="px-3 py-2">${money(discountedPrice(p))}</td>
+          <td class="px-3 py-2">⭐ ${Number(p.rating || 0).toFixed(1)}</td>
+          <td class="px-3 py-2">${Number(p.stock || 0)}</td>
+          <td class="px-3 py-2"><a class="text-purple-700 underline" href="${link}" target="_blank" rel="noopener">Mở</a></td>
+        </tr>`;
+    })
+    .join("");
+
+  return {
+    html: true,
+    text: `
+      <div class="font-semibold mb-2">Bảng so sánh</div>
+      <div class="overflow-x-auto">
+        <table class="text-xs w-full">
+          <tr class="bg-gray-100 border-b">
+            <th class="px-3 py-2 text-left">Sản phẩm</th>
+            <th class="px-3 py-2 text-left">Danh mục</th>
+            <th class="px-3 py-2 text-left">Giá</th>
+            <th class="px-3 py-2 text-left">Rating</th>
+            <th class="px-3 py-2 text-left">Tồn</th>
+            <th class="px-3 py-2 text-left">Link</th>
+          </tr>
+          ${rows}
+        </table>
+      </div>
+      <div class="mt-2 text-xs text-gray-600">Gõ "xóa so sánh" để xoá danh sách so sánh.</div>`,
+  };
+}
+
+function getUpsellSuggestions(product) {
+  const cat = normalizeText(product?.category);
+  const related = (allProducts || [])
+    .filter((p) => p.__backendId !== product.__backendId)
+    .filter((p) => (cat ? normalizeText(p.category) === cat : true))
+    .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+    .slice(0, 2);
+
+  const hints = [];
+  if (cat.includes("xe")) hints.push("Gợi ý kèm: pin dự phòng/ sạc (nếu dùng pin), hoặc thêm 1 xe nhỏ để bé chơi cùng bạn.");
+  if (cat.includes("xep") || cat.includes("xếp")) hints.push("Gợi ý kèm: thêm 1 bộ xếp hình nhỏ để mở rộng mô hình.");
+  if (cat.includes("gau") || cat.includes("gấu")) hints.push("Gợi ý kèm: túi quà + thiệp để tặng sinh nhật.");
+
+  return { related, hints };
+}
+
+function suggestProducts({ maxPrice, category } = {}) {
+  const items = (allProducts || [])
+    .filter((p) => (category ? normalizeText(p.category).includes(normalizeText(category)) : true))
+    .filter((p) => (maxPrice ? discountedPrice(p) <= maxPrice : true))
+    .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+    .slice(0, 3);
+  if (!items.length) return "";
+  return items.map((p) => `• ${p.name} (${money(discountedPrice(p))})`).join("\n");
 }
 
 function getChatbotResponse(message) {
-  const msg = message.toLowerCase();
-  if (msg.includes("tìm") || msg.includes("sản phẩm")) return "Bạn muốn tìm loại đồ chơi nào? (Xếp Hình, Xe, Búp Bê, Khoa Học)";
-  if (msg.includes("đơn hàng") || msg.includes("order")) return currentUser ? 'Bạn có thể xem đơn hàng tại mục "Đơn Hàng".' : "Vui lòng đăng nhập để xem đơn hàng của bạn.";
-  if (msg.includes("khuyến mãi") || msg.includes("giảm giá") || msg.includes("sale") || msg.includes("flash")) return `Hiện có ${allCoupons.length} mã giảm giá hoạt động!`;
-  if (msg.includes("giao hàng") || msg.includes("ship")) return "Chúng tôi giao hàng toàn quốc! Phí giao hàng là 30.000đ.";
-  return "Bạn muốn tìm sản phẩm, theo dõi đơn hàng, hỏi về khuyến mãi, hay gọi agent?";
+  const raw = String(message || "").trim();
+  const msg = normalizeText(raw);
+
+  // Commands: history / compare
+  if (msg === "xoa lich su" || msg === "xoa lich su chat") {
+    chatHistory = [];
+    try {
+      localStorage.removeItem("chatHistory");
+    } catch {
+      // ignore
+    }
+    return { text: "Đã xóa lịch sử chat.", html: false };
+  }
+  if (msg === "xoa so sanh" || msg === "bo so sanh") {
+    compareList = [];
+    try {
+      localStorage.removeItem("compareList");
+    } catch {
+      // ignore
+    }
+    return { text: "Đã xóa danh sách so sánh.", html: false };
+  }
+  if (msg === "so sanh" || msg === "compare") {
+    return chatCompareNow();
+  }
+
+  // Find product
+  if (msg.startsWith("tim ") || msg.startsWith("tim san pham") || msg.includes("tim san pham")) {
+    const q = raw.replace(/^tìm\s+sản\s+phẩm\s*/i, "").replace(/^tim\s+san\s+pham\s*/i, "").replace(/^tìm\s*/i, "").replace(/^tim\s*/i, "").trim();
+    const items = findProductsByText(q || msg, 5);
+    return { html: true, text: `<div class="font-semibold mb-2">Kết quả tìm kiếm</div>${formatProductListHtml(items)}` };
+  }
+
+  // Suggest product
+  if (msg.startsWith("goi y") || msg.startsWith("gợi ý") || msg.includes("goi y san pham") || msg.includes("gợi ý sản phẩm")) {
+    const budget = extractBudgetVnd(raw);
+    const items = (allProducts || [])
+      .filter((p) => (budget ? discountedPrice(p) <= budget : true))
+      .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))
+      .slice(0, 5);
+    return {
+      html: true,
+      text: `<div class="font-semibold mb-2">Gợi ý sản phẩm${budget ? ` trong ngân sách ${money(budget)}` : ""}</div>${formatProductListHtml(items)}`,
+    };
+  }
+
+  // Upsell / add-on suggestions
+  if (msg.startsWith("upsell") || msg.startsWith("mua ") || msg.startsWith("them ") || msg.startsWith("thêm ")) {
+    const q = raw.replace(/^upsell\s*/i, "").replace(/^mua\s*/i, "").replace(/^them\s*/i, "").replace(/^thêm\s*/i, "").trim();
+    const p = findProductsByText(q, 1)[0];
+    if (!p) {
+      return { text: "Bạn muốn mình upsell cho sản phẩm nào? (gõ tên hoặc mã sản phẩm)", html: false };
+    }
+    const { related, hints } = getUpsellSuggestions(p);
+    const relatedHtml = related.length ? formatProductListHtml(related, { showCompare: false }) : "<div>Chưa có sản phẩm liên quan để gợi ý.</div>";
+    return {
+      html: true,
+      text: `<div class="font-semibold mb-2">Gợi ý mua kèm cho: ${escapeHtml(p.name)}</div>${hints.length ? `<div class="text-xs text-gray-700 mb-2">${escapeHtml(hints.join(" "))}</div>` : ""}${relatedHtml}`,
+    };
+  }
+
+  // Compare by text: "so sánh A và B"
+  if (msg.startsWith("so sanh") || msg.startsWith("so sánh")) {
+    const cleaned = raw.replace(/^so\s*s[aá]nh\s*/i, "").trim();
+    const parts = cleaned.split(/\s+va\s+|\s+v[ớo]i\s+|&|,/i).map((x) => x.trim()).filter(Boolean);
+    const picks = parts.slice(0, 3).map((q) => findProductsByText(q, 1)[0]).filter(Boolean);
+    compareList = picks.map((p) => p.__backendId);
+    try {
+      localStorage.setItem("compareList", JSON.stringify(compareList));
+    } catch {
+      // ignore
+    }
+    return chatCompareNow();
+  }
+
+  // Send product link
+  if (msg.includes("gui link") || msg.includes("gửi link") || msg.includes("link san pham") || msg.includes("link sản phẩm")) {
+    const q = raw.replace(/gửi link|gui link|link sản phẩm|link san pham/gi, "").trim();
+    const p = findProductsByText(q, 1)[0];
+    if (!p) return { text: "Bạn muốn link sản phẩm nào? (gõ tên hoặc mã sản phẩm)", html: false };
+    const link = getProductDeepLink(p.__backendId);
+    return { html: true, text: `Link sản phẩm: <a class="text-purple-700 underline" href="${link}" target="_blank" rel="noopener">${escapeHtml(p.name)}</a>` };
+  }
+
+  // Quick intents
+  if (msg.includes("agent") || msg.includes("ho tro") || msg.includes("lien he")) {
+    return 'Bạn có thể bấm nút "👤 Gọi agent" bên dưới để được hỗ trợ trực tiếp.';
+  }
+  if (msg.includes("don hang") || msg.includes("order")) {
+    return currentUser ? 'Bạn có thể xem đơn hàng tại mục "Đơn Hàng".' : "Vui lòng đăng nhập để xem đơn hàng của bạn.";
+  }
+  if (msg.includes("khuyen mai") || msg.includes("giam gia") || msg.includes("sale") || msg.includes("flash")) {
+    return `Hiện có ${allCoupons.length} mã giảm giá hoạt động. Bạn nhập mã ở trang "Giỏ Hàng" → ô "Mã Giảm Giá".`;
+  }
+  if (msg.includes("ship") || msg.includes("giao hang") || msg.includes("van chuyen")) {
+    return "Hiện tại web demo đang tính phí giao hàng cố định 30.000đ/đơn. Nếu bạn cho mình tỉnh/thành, mình tư vấn phương án giao phù hợp.";
+  }
+
+  // Nhóm 1: Thông tin sản phẩm & chất lượng
+  const productInfoRules = [
+    { keys: ["abs", "pp", "nhua", "chat lieu"], answer: "Để trả lời đúng (ABS/PP/nhựa tái chế/gỗ/vải), bạn cho mình tên sản phẩm (hoặc ảnh/mã) nhé." },
+    { keys: ["cr", "chung chi"], answer: "Về chứng chỉ an toàn CR: bạn gửi tên/mã sản phẩm để mình kiểm tra thông tin theo lô hàng/nhà sản xuất nhé." },
+    { keys: ["son", "go", "goc nuoc"], answer: "Đồ chơi gỗ nên dùng sơn gốc nước/không độc hại và bề mặt mịn. Bạn cho mình tên/mã sản phẩm để mình xác nhận loại sơn/chất liệu." },
+    { keys: ["ngam", "hay ngam", "an toan nhat"], answer: "Bé hay ngậm đồ chơi: ưu tiên đồ chơi 1 khối, không chi tiết nhỏ, vật liệu an toàn, bo tròn cạnh. Bạn cho mình độ tuổi bé và loại đồ chơi bạn định mua nhé." },
+    { keys: ["lego", "manh ghep", "chi tiet", "bao nhieu manh"], answer: "Bạn cho mình tên/mã bộ Lego/xếp hình để mình báo chính xác số mảnh và độ tuổi phù hợp nhé." },
+    { keys: ["kich thuoc", "lap xong", "bao nhieu cm"], answer: "Bạn gửi tên/mã sản phẩm để mình cung cấp kích thước sau khi lắp (cm) chính xác nhé." },
+    { keys: ["pin", "aa", "aaa"], answer: "Bạn cho mình tên/mã sản phẩm để mình kiểm tra dùng pin AA hay AAA và có kèm pin trong hộp không nhé." },
+    { keys: ["kem pin", "co pin"], answer: "Tuỳ mẫu có kèm pin hoặc không. Bạn gửi tên/mã sản phẩm để mình trả lời chính xác nhé." },
+    { keys: ["chinh hang", "noi dia", "trung quoc", "hang gi"], answer: "Bạn gửi giúp mình tên/mã sản phẩm để mình xác nhận nguồn gốc/hãng (chính hãng hay nội địa) và thông tin bảo hành." },
+    { keys: ["co nhac", "nhac", "tieng anh", "tieng viet"], answer: "Bạn gửi tên/mã sản phẩm có nhạc để mình kiểm tra có nhạc không và ngôn ngữ (Anh/Việt) nhé." },
+    { keys: ["may thang", "bao nhieu thang", "tham nhac"], answer: "Bạn cho mình độ tuổi bé (mấy tháng) để mình tư vấn thảm nhạc/phát triển giác quan phù hợp và an toàn nhé." },
+    { keys: ["xe dieu khien", "tam", "phat song", "met"], answer: "Xe điều khiển: tầm phát sóng tuỳ mẫu. Bạn gửi tên/mã xe để mình báo số mét và loại điều khiển (RF/Bluetooth) nhé." },
+    { keys: ["dat nan", "kho", "kho cung"], answer: "Đất nặn: tuỳ loại có khô theo thời gian. Bạn cho mình tên/loại đất nặn để mình hướng dẫn bảo quản (đậy kín, hộp zip) nhé." },
+    { keys: ["bup be", "thay quan ao", "chai toc"], answer: "Búp bê đa phần thay quần áo và chải tóc được (tuỳ tóc sợi/tóc cấy). Bạn gửi mẫu búp bê để mình xác nhận phụ kiện đi kèm nhé." },
+    { keys: ["robot", "biet noi", "cam bien lui", "cam bien"], answer: "Robot: tuỳ mẫu có nói/cảm biến. Bạn gửi tên/mã robot để mình kiểm tra tính năng (nói, tránh vật cản, cảm biến lùi) nhé." },
+    { keys: ["nau an", "dung nuoc", "nuoc that"], answer: "Đồ chơi nấu ăn: có mẫu dùng nước thật, có mẫu chỉ mô phỏng. Bạn gửi tên/mã bộ để mình xác nhận nhé." },
+    { keys: ["the hoc", "plastic", "ep", "chong tham"], answer: "Bộ thẻ học: bạn gửi tên/mã để mình kiểm tra có ép plastic/chống thấm không nhé." },
+    { keys: ["sach vai", "giat", "may giat"], answer: "Sách vải: thường giặt tay là tốt nhất, một số loại giặt máy chế độ nhẹ. Bạn gửi tên/mẫu để mình hướng dẫn chi tiết." },
+    { keys: ["xe choi chan", "tai trong", "bao nhieu kg"], answer: "Xe chòi chân: bạn gửi tên/mã xe để mình báo tải trọng tối đa (kg) và độ tuổi phù hợp nhé." },
+    { keys: ["goc nhon", "nguy hiem"], answer: "Bạn gửi tên/mã sản phẩm để mình kiểm tra thiết kế (góc nhọn/chi tiết nhỏ). Nếu cho mình độ tuổi bé thì mình tư vấn chuẩn hơn." },
+    { keys: ["may nguoi", "choi cung", "bao nhieu nguoi"], answer: "Bạn cho mình tên trò chơi/boardgame để mình báo số người chơi phù hợp (2–4, 4–6…) nhé." },
+    { keys: ["huong dan", "lap rap", "hinh ve"], answer: "Bạn cho mình tên/mã bộ lắp ráp để mình xác nhận có hướng dẫn hình ảnh chi tiết trong hộp không nhé." },
+    { keys: ["gau bong", "rung long", "rut long"], answer: "Gấu bông: ưu tiên vải mềm, may chắc, ít rụng lông. Bạn gửi mẫu bạn đang xem để mình tư vấn loại vải và cách vệ sinh." },
+    { keys: ["bang ve", "dien tu", "xoa tung phan"], answer: "Bảng vẽ điện tử: tuỳ mẫu có xoá từng phần hoặc xoá toàn bộ. Bạn gửi tên/mã bảng vẽ để mình xác nhận nhé." },
+    { keys: ["hoc so", "chu cai", "so va chu"], answer: "Nếu mục tiêu học số/chữ cái: bạn cho mình độ tuổi bé để mình gợi ý bộ thẻ học/đồ chơi giáo dục phù hợp nhé." },
+    { keys: ["dieu", "gio nhe", "de bay"], answer: "Diều: gió nhẹ vẫn bay được hay không tuỳ khung và diện tích cánh. Bạn gửi mẫu diều để mình tư vấn điều kiện gió phù hợp." },
+    { keys: ["be boi", "phao", "bom dien"], answer: "Bể bơi phao: tuỳ set có kèm bơm điện hay không. Bạn gửi tên/mã sản phẩm để mình kiểm tra nhé." },
+    { keys: ["cau truot", "lap dat", "kho khong"], answer: "Cầu trượt: thường lắp theo khớp và ốc. Bạn gửi mẫu để mình nói độ khó lắp và dụng cụ cần (nếu có)." },
+    { keys: ["trang diem", "kich ung", "da"], answer: "Đồ chơi trang điểm: nên chọn loại dành cho trẻ em, dễ rửa, an toàn da. Bạn gửi tên/mã để mình kiểm tra thành phần/khuyến cáo độ tuổi nhé." },
+    { keys: ["mau ve", "rua sach", "dinh quan ao"], answer: "Bộ màu vẽ: tuỳ loại (màu nước, marker…). Bạn gửi tên/mã bộ màu để mình xác nhận có rửa sạch được không và cách xử lý khi dính quần áo nhé." },
+  ];
+
+  for (const r of productInfoRules) {
+    if (r.keys.some((k) => msg.includes(k))) return r.answer;
+  }
+
+  // Nhóm 2: Tư vấn quà tặng & độ tuổi
+  const age = extractAge(raw);
+  const budget = extractBudgetVnd(raw);
+  if (msg.includes("qua") || msg.includes("tang") || msg.includes("sinh nhat") || msg.includes("noel") || msg.includes("trung thu") || msg.includes("1/6")) {
+    if (age?.years === 1) return "Bé 1 tuổi: gợi ý đồ chơi xếp chồng, thả khối, sách vải, đồ chơi âm thanh nhẹ (an toàn, ít chi tiết nhỏ). Bạn muốn bé trai hay bé gái và ngân sách bao nhiêu?";
+    if (age?.years === 3) return "Bé 3 tuổi: gợi ý đồ chơi vận động nhẹ, xếp hình đơn giản, đồ chơi nhập vai (bếp, bác sĩ), xe kéo. Bạn thích bé vận động hay chơi trí tuệ?";
+    if (age?.years === 5) return "Bé 5 tuổi: gợi ý búp bê/phụ kiện, đồ chơi nấu ăn, bộ xếp hình nâng cao, boardgame đơn giản. Bạn nói giúp bé thích chủ đề nào (công chúa/siêu nhân/xe cộ/âm nhạc)?";
+    if (age?.years && age.years >= 6) return `Bé ${age.years} tuổi: gợi ý STEM/boardgame/xếp hình theo sở thích. Bạn cho mình sở thích và ngân sách để mình chốt 3 lựa chọn phù hợp nhất nhé.`;
+    return "Bạn cho mình độ tuổi của bé (mấy tuổi/mấy tháng) + sở thích + ngân sách, mình gợi ý quà đúng ý ngay.";
+  }
+
+  if (msg.includes("be gai") && msg.includes("5") && msg.includes("tuoi")) return "Bé gái 5 tuổi thường thích búp bê/phụ kiện hoặc đồ chơi nhập vai (nấu ăn). Nếu bé thích chăm sóc/đóng vai: chọn búp bê; nếu thích bắt chước người lớn: chọn bộ nấu ăn.";
+  if (msg.includes("be trai") && msg.includes("3") && msg.includes("tuoi") && (msg.includes("van dong") || msg.includes("the thao")))
+    return "Bé trai 3 tuổi: gợi ý xe chòi chân, bóng/đồ chơi ném bắt, xe kéo, hầm chui. Bạn muốn chơi trong nhà hay ngoài trời?";
+  if (msg.includes("stem") && (msg.includes("8") || msg.includes("8 tuoi"))) return "STEM cho bé 8 tuổi: nên chọn bộ thí nghiệm đơn giản, lắp ráp theo hướng dẫn từng bước. Bạn cho mình bé thích khoa học hay lắp ráp để mình gợi ý đúng.";
+  if (msg.includes("boardgame") || msg.includes("co vua") || msg.includes("tro choi ban")) return "Boardgame cho bé 6 tuổi: ưu tiên luật đơn giản, ván ngắn (10–20 phút), chơi 2–4 người. Bạn cho mình số người chơi và độ tuổi để mình gợi ý.";
+  if (msg.includes("sieu nhan")) return "Bạn thích siêu nhân chủ đề nào (Marvel/DC/siêu anh hùng robot)? Bạn gửi từ khoá hoặc ảnh để mình gợi ý mẫu gần nhất trong shop.";
+  if (msg.includes("kinh hien vi") || msg.includes("ong nhom")) return "Bé thích khám phá thiên nhiên: kính hiển vi phù hợp quan sát chi tiết (lá, côn trùng), ống nhòm phù hợp quan sát xa (chim, cảnh). Nếu bé hay chơi ngoài trời → ống nhòm; thích thí nghiệm trong nhà → kính hiển vi.";
+  if (msg.includes("song sinh")) return "Song sinh (1 trai 1 gái): gợi ý 1 bộ chơi chung (boardgame, xếp hình) + 2 món nhỏ theo sở thích riêng. Bạn cho mình độ tuổi để mình gợi ý cụ thể.";
+  if (msg.includes("duoi") && msg.includes("100k")) {
+    const sug = suggestProducts({ maxPrice: 100000 });
+    return sug ? `Gợi ý dưới 100k:\n${sug}\nBạn muốn quà cho bé mấy tuổi?` : "Bạn cho mình độ tuổi bé, mình sẽ gợi ý vài món dưới 100k phù hợp.";
+  }
+
+  // Nhóm 3: Giá cả & khuyến mãi
+  if (msg.includes("ma giam gia") || msg.includes("voucher") || msg.includes("code")) {
+    const m = raw.match(/\[([A-Z0-9_-]{3,})\]/i);
+    const code = m ? m[1] : null;
+    return code
+      ? `Bạn nhập mã ${code} ở trang "Giỏ Hàng" → ô "Mã Giảm Giá" rồi bấm "Áp Dụng".`
+      : 'Bạn nhập mã ở trang "Giỏ Hàng" → ô "Mã Giảm Giá" rồi bấm "Áp Dụng".';
+  }
+  if (msg.includes("dong gia")) return "Bạn cho mình mức đồng giá bạn muốn (ví dụ 99k/199k). Mình sẽ gợi ý các sản phẩm phù hợp trong shop.";
+  if (msg.includes("shopee") || msg.includes("lazada")) return "Giá trên sàn có thể khác do chương trình/voucher từng kênh. Bạn gửi link hoặc tên sản phẩm để mình kiểm tra giá đúng giúp bạn.";
+  if (msg.includes("vip") || msg.includes("thanh vien")) return "Chương trình VIP phụ thuộc chính sách shop. Bạn để lại số điện thoại/email, mình ghi nhận để admin tư vấn ưu đãi theo hạng thành viên.";
+  if (msg.includes("tra gop")) return "Trả góp: hiện web demo chưa tích hợp. Nếu bạn cần, mình có thể hướng dẫn phương án thanh toán/chia đơn phù hợp.";
+  if (msg.includes("qua tang kem") || msg.includes("gift")) return "Quà tặng kèm thường áp dụng theo chương trình. Bạn cho mình giá trị đơn dự kiến và món bạn mua, mình kiểm tra xem có quà tặng kèm không nhé.";
+  if (msg.includes("xa kho") || msg.includes("black friday")) return "Đợt xả kho/sale lớn thường vào dịp lễ lớn (Black Friday, Noel, Tết). Bạn muốn mình báo khi có chương trình không?";
+  if (msg.includes("mua 2") || msg.includes("mua hai")) return "Mua 2 bộ: tuỳ chương trình sẽ có giảm thêm/áp mã. Bạn cho mình tên sản phẩm và số lượng để mình tính giá tốt nhất.";
+  if (msg.includes("mien phi ship") || msg.includes("freeship")) return "Freeship hiện chưa cấu hình theo ngưỡng trong web demo. Bạn cho mình địa chỉ nhận, mình tư vấn phí và ưu đãi nếu có.";
+  if (msg.includes("phi ship") && msg.includes("50")) return "Hỗ trợ 50% phí ship: tuỳ chương trình. Bạn cho mình địa chỉ nhận + giá trị đơn để mình kiểm tra ưu đãi.";
+  if (msg.includes("gia le") || msg.includes("chiet khau")) return "Giá hiển thị là giá bán lẻ; nếu có khuyến mãi sẽ áp qua mã giảm giá hoặc flash sale. Bạn muốn mình kiểm tra giá cuối cho món nào?";
+  if (msg.includes("mua kem") || msg.includes("deal soc") || msg.includes("phu kien")) return "Deal phụ kiện (pin/hộp): bạn cho mình món chính đang mua, mình sẽ gợi ý phụ kiện phù hợp và ưu đãi (nếu có).";
+  if (msg.includes("gia") || msg.includes("duoi") || msg.includes("100k") || msg.includes("ngan sach")) {
+    if (budget) {
+      const sug = suggestProducts({ maxPrice: budget });
+      return sug ? `Gợi ý trong ngân sách ${money(budget)}:\n${sug}\nBạn mua cho bé mấy tuổi và thích chủ đề gì?` : "Bạn cho mình độ tuổi bé và chủ đề (xe/xếp hình/gấu bông…), mình gợi ý trong ngân sách nhé.";
+    }
+    return "Bạn cho mình ngân sách (vd: dưới 100k/200k/500k) + độ tuổi bé, mình sẽ lọc vài sản phẩm phù hợp trong shop.";
+  }
+  if (msg.includes("si") || msg.includes("mua si") || msg.includes("so luong lon")) {
+    return "Mua số lượng lớn: bạn cho mình số lượng dự kiến và danh sách món (hoặc loại đồ chơi), mình sẽ báo chính sách giá tốt theo số lượng.";
+  }
+
+  // Nhóm 4: Đặt hàng & Thanh toán
+  const orderPayRules = [
+    { keys: ["huy don", "huy"], answer: "Bạn gửi giúp mình mã đơn (ORD-xxxx) và lý do hủy, mình sẽ hướng dẫn xử lý nhé." },
+    { keys: ["dat coc"], answer: "Thông thường không cần đặt cọc với COD; với đơn giá trị lớn có thể cần xác nhận. Bạn cho mình giá trị đơn dự kiến để mình tư vấn." },
+    { keys: ["chuyen khoan", "ngan hang"], answer: "Chuyển khoản: hiện web demo chưa hiển thị số tài khoản cố định. Bạn để lại yêu cầu, mình sẽ nhờ admin gửi thông tin ngân hàng." },
+    { keys: ["momo", "zalopay", "shopeepay", "vi dien tu"], answer: "Ví điện tử: trong web demo bạn có thể chọn 'Ví điện tử' ở Giỏ Hàng. Nếu bạn cần ví cụ thể (Momo/ZaloPay), mình ghi nhận để shop hỗ trợ." },
+    { keys: ["the tin dung", "credit"], answer: "Thẻ tín dụng khi nhận hàng: tuỳ đơn vị vận chuyển. Hiện demo chưa hỗ trợ. Bạn muốn COD hay chuyển khoản/ ví?" },
+    { keys: ["dat thanh cong", "xac nhan"], answer: "Khi đặt hàng thành công, hệ thống sẽ tạo mã đơn (ORD-xxxx) và bạn xem lại trong mục 'Đơn Hàng'." },
+    { keys: ["hoa don", "vat"], answer: "Hóa đơn VAT: bạn cho mình thông tin công ty và mã số thuế, mình sẽ chuyển admin hỗ trợ xuất hóa đơn." },
+    { keys: ["nham dia chi", "sua dia chi"], answer: "Bạn gửi mã đơn + địa chỉ đúng, mình sẽ hướng dẫn cập nhật (nếu đơn chưa giao cho shipper thì sửa được)." },
+    { keys: ["toi da", "max", "bao nhieu bo"], answer: "Số lượng tối đa tuỳ tồn kho. Bạn cho mình tên sản phẩm và số lượng muốn mua để mình kiểm tra tồn." },
+    { keys: ["zalo"], answer: "Xác nhận qua Zalo: hiện demo chưa tích hợp tự động. Bạn để lại số Zalo, shop có thể liên hệ xác nhận." },
+    { keys: ["uu tien", "giao nhanh"], answer: "Thanh toán trước có thể giúp xử lý nhanh hơn tuỳ đơn. Bạn cho mình khu vực nhận để mình tư vấn phương án giao." },
+    { keys: ["dat ho"], answer: "Đặt hộ: bạn chỉ cần nhập thông tin người nhận, còn bạn thanh toán trước. Bạn muốn COD hay chuyển khoản/ ví?" },
+    { keys: ["loi thanh toan"], answer: "Nếu web báo lỗi thanh toán: bạn thử đổi phương thức (COD) hoặc tải lại trang. Nếu vẫn lỗi, gửi giúp mình ảnh màn hình lỗi." },
+    { keys: ["gop don"], answer: "Gộp đơn: bạn gửi 2 mã đơn hoặc danh sách món, mình sẽ hướng dẫn gộp để tối ưu phí ship (nếu còn kịp xử lý)." },
+    { keys: ["giu hang", "2 ngay"], answer: "Giữ hàng 2 ngày: bạn cho mình tên sản phẩm + số lượng, mình sẽ ghi chú để shop giữ (tuỳ tồn kho)." },
+  ];
+  for (const r of orderPayRules) {
+    if (r.keys.some((k) => msg.includes(k))) return r.answer;
+  }
+
+  // Nhóm 5: Vận chuyển & giao nhận
+  const shippingRules = [
+    { keys: ["hoa toc", "grab", "ahamove"], answer: "Giao hỏa tốc: thường 1–3 giờ trong nội thành (tuỳ khoảng cách). Bạn cho mình địa chỉ nhận để mình tư vấn." },
+    { keys: ["ha noi", "tp hcm", "may ngay"], answer: "Hà Nội nhận từ TP.HCM thường 2–5 ngày (tuỳ đơn vị vận chuyển). Bạn cho mình quận/huyện để ước tính sát hơn." },
+    { keys: ["kiem tra hang", "xem hang"], answer: "Kiểm tra hàng: tuỳ chính sách đơn vị giao. Bạn có thể yêu cầu 'được kiểm tra' khi nhận. Nếu shipper không cho xem, bạn chụp ảnh kiện hàng và liên hệ shop để hỗ trợ." },
+    { keys: ["dong goi", "kin dao", "che ten"], answer: "Shop có thể đóng gói kín/che tên sản phẩm. Bạn nhắn 'đóng gói kín' khi đặt hàng nhé." },
+    { keys: ["de vo", "boc xop", "chong soc"], answer: "Hàng dễ vỡ: shop sẽ bọc chống sốc (xốp nổ/đệm). Bạn cho mình sản phẩm nào dễ vỡ để mình ghi chú đóng gói kỹ." },
+    { keys: ["buu cuc"], answer: "Nhận tại bưu cục: tuỳ đơn vị vận chuyển. Bạn cho mình khu vực và đơn vị bạn muốn (GHN/GHTK/VNPost) để mình tư vấn." },
+    { keys: ["luan chuyen"], answer: "Trạng thái 'Đang luân chuyển' lâu: bạn gửi mã đơn/mã vận đơn, mình hướng dẫn cách kiểm tra và escalte hỗ trợ." },
+    { keys: ["goi truoc"], answer: "Shipper thường sẽ gọi trước khi giao. Bạn có thể ghi chú 'gọi trước khi giao' ở phần thông tin nhận hàng." },
+    { keys: ["doi so dien thoai"], answer: "Đổi số điện thoại nhận: bạn gửi mã đơn + số mới, mình hướng dẫn cập nhật (nếu chưa phát hàng)." },
+    { keys: ["chu nhat", "ngay le"], answer: "Giao Chủ nhật/ngày lễ: tuỳ khu vực và đơn vị vận chuyển. Bạn cho mình địa chỉ nhận để mình kiểm tra khả năng giao." },
+    { keys: ["vung sau", "vung xa", "huyen", "xa"], answer: "Phí ship vùng sâu/vùng xa: tuỳ đơn vị. Bạn cho mình địa chỉ cụ thể để ước tính phí." },
+    { keys: ["hen gio", "gio hanh chinh"], answer: "Hẹn giao giờ hành chính: bạn ghi chú khung giờ mong muốn, shipper sẽ cố gắng giao theo ghi chú." },
+    { keys: ["ma van don", "van don"], answer: "Mã vận đơn: bạn gửi mã đơn (ORD-xxxx), mình sẽ hướng dẫn cách lấy thông tin theo dõi (trong demo hiện chưa hiển thị tự động)." },
+    { keys: ["that lac", "mat hang"], answer: "Nếu thất lạc: bạn gửi mã đơn/mã vận đơn + thời điểm, shop sẽ làm việc với vận chuyển để xử lý (gửi lại/hoàn tiền tuỳ trường hợp)." },
+  ];
+  for (const r of shippingRules) {
+    if (r.keys.some((k) => msg.includes(k))) return r.answer;
+  }
+
+  // Nhóm 6: Bảo hành & khiếu nại
+  const warrantyRules = [
+    { keys: ["loi ky thuat", "khong len dien"], answer: "Hàng lỗi kỹ thuật: bạn gửi mã đơn + video/ảnh lỗi, shop sẽ hướng dẫn đổi mới/bảo hành tuỳ sản phẩm." },
+    { keys: ["doi tra", "bao nhieu ngay"], answer: "Đổi trả: tuỳ chính sách từng sản phẩm. Bạn gửi mã đơn + sản phẩm để mình hướng dẫn thời gian/điều kiện đổi trả." },
+    { keys: ["thieu manh", "thieu phu kien"], answer: "Thiếu mảnh/phụ kiện: bạn chụp ảnh và gửi mã đơn, shop sẽ hỗ trợ gửi bù nếu xác nhận thiếu." },
+    { keys: ["phi van chuyen", "bao hanh"], answer: "Phí vận chuyển bảo hành: tuỳ lỗi do nhà sản xuất hay do sử dụng. Bạn gửi tình trạng để shop tư vấn chi tiết." },
+    { keys: ["het han bao hanh", "sua"], answer: "Hết hạn bảo hành: shop có thể hỗ trợ sửa/bán linh kiện tuỳ loại. Bạn gửi sản phẩm và lỗi để mình kiểm tra khả năng hỗ trợ." },
+    { keys: ["lam qua", "khong thich", "doi mau"], answer: "Mua làm quà: đổi mẫu phụ thuộc tình trạng nguyên hộp/chưa sử dụng. Bạn gửi mã đơn để shop kiểm tra điều kiện đổi." },
+    { keys: ["hoan tien 100"], answer: "Hoàn tiền 100% thường áp dụng khi lỗi nghiêm trọng do nhà sản xuất/không thể đổi. Bạn gửi mã đơn + bằng chứng để shop xử lý." },
+    { keys: ["trung tam bao hanh", "tinh"], answer: "Trung tâm bảo hành: tuỳ hãng. Bạn gửi tên sản phẩm/hãng để mình hướng dẫn nơi bảo hành phù hợp." },
+    { keys: ["video khui hang"], answer: "Video khui hàng giúp xử lý nhanh khi thiếu/ lỗi. Nếu không có video, bạn vẫn gửi ảnh chi tiết, shop sẽ hỗ trợ theo trường hợp." },
+    { keys: ["tra loi cham", "sang den chieu"], answer: "Xin lỗi bạn vì chậm phản hồi. Bạn gửi lại mã đơn hoặc vấn đề cụ thể, mình ưu tiên hỗ trợ ngay nhé." },
+    { keys: ["linh kien", "thay the"], answer: "Linh kiện thay thế: tuỳ sản phẩm. Bạn gửi tên sản phẩm và linh kiện cần, mình kiểm tra khả năng cung cấp." },
+    { keys: ["pin sac", "chai"], answer: "Pin sạc bị chai: bạn gửi mẫu pin/đồ chơi dùng pin để mình tư vấn loại pin/sạc thay thế phù hợp." },
+    { keys: ["hop nat", "mop hop"], answer: "Hộp bị móp/nát: bạn chụp ảnh kiện hàng và bên trong. Shop sẽ hỗ trợ theo mức độ ảnh hưởng (đổi/giảm/đền bù) tuỳ trường hợp." },
+    { keys: ["quy trinh gui tra", "gui tra"], answer: "Quy trình gửi trả: bạn gửi mã đơn + lý do, shop sẽ cung cấp địa chỉ nhận trả và hướng dẫn đóng gói/đơn vị gửi." },
+    { keys: ["thai do shipper"], answer: "Khiếu nại shipper: bạn gửi mã đơn + thời gian giao + mô tả, shop sẽ phản hồi với đơn vị vận chuyển để xử lý." },
+  ];
+  for (const r of warrantyRules) {
+    if (r.keys.some((k) => msg.includes(k))) return r.answer;
+  }
+
+  // Default
+  return "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)";
 }
 
 function sendChatMessage() {
@@ -804,7 +1301,11 @@ function sendChatMessage() {
   if (!message) return;
   addChatMessage("user", message);
   input.value = "";
-  setTimeout(() => addChatMessage("bot", getChatbotResponse(message)), 300);
+  setTimeout(() => {
+    const res = getChatbotResponse(message);
+    if (typeof res === "string") addChatMessage("bot", res, { html: false });
+    else addChatMessage("bot", res.text, { html: !!res.html });
+  }, 300);
 }
 
 function handleChatKeypress(event) {
@@ -813,7 +1314,11 @@ function handleChatKeypress(event) {
 
 function sendQuickMessage(message) {
   addChatMessage("user", message);
-  setTimeout(() => addChatMessage("bot", getChatbotResponse(message)), 300);
+  setTimeout(() => {
+    const res = getChatbotResponse(message);
+    if (typeof res === "string") addChatMessage("bot", res, { html: false });
+    else addChatMessage("bot", res.text, { html: !!res.html });
+  }, 300);
 }
 
 function requestAgent() {
@@ -1300,6 +1805,7 @@ async function init() {
     seedData();
   }
   syncCategoryOptionsFromProducts();
+  loadChatHistory();
 
   loadSavedUser();
   updateAuthUI();
