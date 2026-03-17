@@ -16,6 +16,8 @@ let compareList = [];
 let chatHistory = [];
 
 let flashSaleEndMs = Date.now() + 60 * 60 * 1000;
+let adminEditingProductId = null;
+let adminEditingCategory = null;
 
 const defaultConfig = {
   site_name: "ToyLand Pro",
@@ -613,6 +615,64 @@ function adminAddProduct() {
   })();
 }
 
+function adminSubmitProduct() {
+  if (adminEditingProductId) return adminUpdateProduct(adminEditingProductId);
+  return adminAddProduct();
+}
+
+function adminEditProduct(id) {
+  const p = allProducts.find((x) => x.__backendId === id);
+  if (!p) return;
+  adminEditingProductId = id;
+  document.getElementById("admin-product-name").value = String(p.name || "");
+  document.getElementById("admin-product-price").value = String(Number(p.price || 0) || "");
+  document.getElementById("admin-product-stock").value = String(Number(p.stock || 0) || "");
+  if (p.category) document.getElementById("admin-product-category").value = String(p.category);
+
+  const submitBtn = document.getElementById("admin-product-submit");
+  if (submitBtn) submitBtn.textContent = "Lưu";
+  const cancelBtn = document.getElementById("admin-product-cancel");
+  if (cancelBtn) cancelBtn.classList.remove("hidden");
+}
+
+function adminCancelEditProduct() {
+  adminEditingProductId = null;
+  document.getElementById("admin-product-name").value = "";
+  document.getElementById("admin-product-price").value = "";
+  document.getElementById("admin-product-stock").value = "";
+
+  const submitBtn = document.getElementById("admin-product-submit");
+  if (submitBtn) submitBtn.textContent = "Thêm";
+  const cancelBtn = document.getElementById("admin-product-cancel");
+  if (cancelBtn) cancelBtn.classList.add("hidden");
+}
+
+function adminUpdateProduct(id) {
+  (async () => {
+    const base = allProducts.find((x) => x.__backendId === id);
+    if (!base) return addNotification("❌ Không tìm thấy sản phẩm để sửa");
+
+    const name = document.getElementById("admin-product-name").value.trim();
+    const price = parseFloat(document.getElementById("admin-product-price").value);
+    const stock = parseInt(document.getElementById("admin-product-stock").value, 10);
+    const category = document.getElementById("admin-product-category").value;
+    if (!name || !Number.isFinite(price) || !Number.isFinite(stock)) return addNotification("❌ Vui lòng nhập đầy đủ thông tin");
+
+    const updated = { ...base, name, price, stock, category };
+    try {
+      await apiJson(`/api/products/${encodeURIComponent(id)}`, { method: "PUT", body: updated });
+      await refreshProducts();
+      addNotification("✅ Cập nhật sản phẩm thành công!");
+      adminCancelEditProduct();
+      syncCategoryOptionsFromProducts();
+      updateAdminProducts();
+      updateUI();
+    } catch (err) {
+      addNotification(`❌ ${(err && err.message) || "Không thể cập nhật sản phẩm"}`);
+    }
+  })();
+}
+
 function adminDeleteProduct(id) {
   (async () => {
     try {
@@ -639,19 +699,98 @@ function updateAdminProducts() {
       ${allProducts
         .map(
           (p) =>
-            `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2">${p.name}</td><td class="px-4 py-2">${money(discountedPrice(p))}</td><td class="px-4 py-2">${p.category}</td><td class="px-4 py-2">${Number(p.stock || 0)}</td><td class="px-4 py-2">⭐ ${Number(p.rating || 0).toFixed(1)}</td><td class="px-4 py-2 text-center"><button onclick="adminDeleteProduct('${p.__backendId}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button></td></tr>`
+            `<tr class="border-b hover:bg-gray-50">
+              <td class="px-4 py-2">${p.name}</td>
+              <td class="px-4 py-2">${money(discountedPrice(p))}</td>
+              <td class="px-4 py-2">${p.category}</td>
+              <td class="px-4 py-2">${Number(p.stock || 0)}</td>
+              <td class="px-4 py-2">⭐ ${Number(p.rating || 0).toFixed(1)}</td>
+              <td class="px-4 py-2 text-center">
+                <div class="flex gap-3 justify-center">
+                  <button onclick="adminEditProduct('${p.__backendId}')" class="text-blue-600 hover:text-blue-800 font-bold">Sửa</button>
+                  <button onclick="adminDeleteProduct('${p.__backendId}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button>
+                </div>
+              </td>
+            </tr>`
         )
         .join("")}
     </table>`;
 }
 
+function adminSubmitCategory() {
+  if (adminEditingCategory) return adminRenameCategory(adminEditingCategory);
+  return adminAddCategory();
+}
+
 function adminAddCategory() {
-  const name = document.getElementById("admin-category-name").value.trim();
-  if (!name) return;
-  if (!categories.includes(name)) categories.push(name);
+  (async () => {
+    const name = document.getElementById("admin-category-name").value.trim();
+    if (!name) return;
+
+    const current = Array.isArray(siteConfig.categories) ? siteConfig.categories.map((c) => String(c || "").trim()).filter(Boolean) : [];
+    if (!current.includes(name)) current.push(name);
+
+    try {
+      await saveConfig({ categories: current });
+      document.getElementById("admin-category-name").value = "";
+      syncCategoryOptionsFromProducts();
+      addNotification("✅ Thêm danh mục thành công!");
+      updateAdminCategories();
+    } catch (err) {
+      addNotification(`❌ ${(err && err.message) || "Không thể thêm danh mục"}`);
+    }
+  })();
+}
+
+function adminEditCategory(cat) {
+  adminEditingCategory = String(cat || "");
+  document.getElementById("admin-category-name").value = adminEditingCategory;
+  const submitBtn = document.getElementById("admin-category-submit");
+  if (submitBtn) submitBtn.textContent = "Lưu";
+  const cancelBtn = document.getElementById("admin-category-cancel");
+  if (cancelBtn) cancelBtn.classList.remove("hidden");
+}
+
+function adminCancelEditCategory() {
+  adminEditingCategory = null;
   document.getElementById("admin-category-name").value = "";
-  addNotification("✅ Thêm danh mục thành công!");
-  updateAdminCategories();
+  const submitBtn = document.getElementById("admin-category-submit");
+  if (submitBtn) submitBtn.textContent = "Thêm";
+  const cancelBtn = document.getElementById("admin-category-cancel");
+  if (cancelBtn) cancelBtn.classList.add("hidden");
+}
+
+function adminRenameCategory(oldCat) {
+  (async () => {
+    const oldName = String(oldCat || "").trim();
+    const newName = document.getElementById("admin-category-name").value.trim();
+    if (!oldName || !newName) return;
+    if (oldName === newName) return adminCancelEditCategory();
+
+    const cfgCats = Array.isArray(siteConfig.categories) ? siteConfig.categories.map((c) => String(c || "").trim()).filter(Boolean) : [];
+    const exists = new Set([...cfgCats, ...categories].map((c) => String(c || "").trim()).filter(Boolean));
+    if (exists.has(newName)) return addNotification("❌ Danh mục mới đã tồn tại");
+
+    try {
+      const affected = allProducts.filter((p) => String(p.category || "") === oldName);
+      for (const p of affected) {
+        await apiJson(`/api/products/${encodeURIComponent(p.__backendId)}`, { method: "PUT", body: { ...p, category: newName } });
+      }
+
+      const nextCats = cfgCats.map((c) => (c === oldName ? newName : c));
+      if (!nextCats.includes(newName)) nextCats.push(newName);
+      await saveConfig({ categories: nextCats });
+
+      await refreshProducts();
+      syncCategoryOptionsFromProducts();
+      updateAdminCategories();
+      updateAdminProducts();
+      adminCancelEditCategory();
+      addNotification(`✅ Đã đổi danh mục “${oldName}” → “${newName}” (${affected.length} sản phẩm)`);
+    } catch (err) {
+      addNotification(`❌ ${(err && err.message) || "Không thể sửa danh mục"}`);
+    }
+  })();
 }
 
 function updateAdminCategories() {
@@ -662,15 +801,48 @@ function updateAdminCategories() {
       ${categories
         .map((cat) => {
           const cnt = allProducts.filter((p) => p.category === cat).length;
-          return `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-2">${cat}</td><td class="px-4 py-2 text-center">${cnt}</td><td class="px-4 py-2 text-center"><button onclick="deleteCategory('${cat}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button></td></tr>`;
+          return `<tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-2">${cat}</td>
+            <td class="px-4 py-2 text-center">${cnt}</td>
+            <td class="px-4 py-2 text-center">
+              <div class="flex gap-3 justify-center">
+                <button onclick="adminEditCategory('${cat}')" class="text-blue-600 hover:text-blue-800 font-bold">Sửa</button>
+                <button onclick="deleteCategory('${cat}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button>
+              </div>
+            </td>
+          </tr>`;
         })
         .join("")}
     </table>`;
 }
 
 function deleteCategory(cat) {
-  categories = categories.filter((c) => c !== cat);
-  updateAdminCategories();
+  (async () => {
+    const name = String(cat || "").trim();
+    if (!name) return;
+    const cnt = allProducts.filter((p) => String(p.category || "") === name).length;
+    const ok = cnt > 0 ? confirm(`Danh mục “${name}” đang có ${cnt} sản phẩm. Xóa sẽ chuyển các sản phẩm về “Khác”. Bạn có chắc?`) : confirm(`Bạn có chắc muốn xóa danh mục “${name}”?`);
+    if (!ok) return;
+
+    try {
+      const affected = allProducts.filter((p) => String(p.category || "") === name);
+      for (const p of affected) {
+        await apiJson(`/api/products/${encodeURIComponent(p.__backendId)}`, { method: "PUT", body: { ...p, category: "Khác" } });
+      }
+
+      const cfgCats = Array.isArray(siteConfig.categories) ? siteConfig.categories.map((c) => String(c || "").trim()).filter(Boolean) : [];
+      const nextCats = cfgCats.filter((c) => c !== name);
+      await saveConfig({ categories: nextCats });
+
+      await refreshProducts();
+      syncCategoryOptionsFromProducts();
+      updateAdminCategories();
+      updateAdminProducts();
+      addNotification(`✅ Đã xóa danh mục “${name}”`);
+    } catch (err) {
+      addNotification(`❌ ${(err && err.message) || "Không thể xóa danh mục"}`);
+    }
+  })();
 }
 
 function updateAdminOrders() {
@@ -1407,6 +1579,7 @@ const fixedDefaultConfig = {
   site_phone: "1900-1234",
   site_address: "123 Phố Huế, Hoàn Kiếm, Hà Nội",
   footer_text: "© 2026 ToyLand - Cửa hàng đồ chơi uy tín hàng đầu",
+  categories: ["Xếp Hình", "Xe", "Búp Bê", "Khoa Học", "Khác"],
 };
 
 let siteConfig = { ...fixedDefaultConfig };
@@ -1775,7 +1948,9 @@ function updateOrderStatus(idx, status) {
 }
 
 function syncCategoryOptionsFromProducts() {
-  const set = new Set((allProducts || []).map((p) => String(p.category || "").trim()).filter(Boolean));
+  const productCats = (allProducts || []).map((p) => String(p.category || "").trim()).filter(Boolean);
+  const cfgCats = Array.isArray(siteConfig.categories) ? siteConfig.categories.map((c) => String(c || "").trim()).filter(Boolean) : [];
+  const set = new Set([...cfgCats, ...productCats, "Khác"].filter(Boolean));
   const cats = Array.from(set).sort((a, b) => a.localeCompare(b, "vi"));
   if (cats.length) categories = cats;
 
@@ -1795,7 +1970,7 @@ function syncCategoryOptionsFromProducts() {
 }
 
 async function init() {
-  categories = ["Xếp Hình", "Xe", "Búp Bê", "Khoa Học"];
+  categories = Array.isArray(fixedDefaultConfig.categories) ? [...fixedDefaultConfig.categories] : ["Khác"];
   await refreshConfigSafe();
   applyConfig();
 

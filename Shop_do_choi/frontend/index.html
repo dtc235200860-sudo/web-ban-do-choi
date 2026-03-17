@@ -6,7 +6,7 @@
     <title>ToyLand - Cửa Hàng Đồ Chơi</title>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <script src="js/script.js?v=20260316" defer></script>
+    <script src="js/script.js?v=20260317" defer></script>
   </head>
   <body class="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 h-full">
     <div id="app" class="h-full">
@@ -291,7 +291,10 @@
                     <option value="Búp Bê">Búp Bê</option>
                     <option value="Khoa Học">Khoa Học</option>
                   </select>
-                  <button onclick="adminAddProduct()" class="px-6 py-2 btn-primary text-white rounded-lg font-bold">Thêm</button>
+                  <div class="flex gap-2">
+                    <button id="admin-product-submit" onclick="adminSubmitProduct()" class="flex-1 px-6 py-2 btn-primary text-white rounded-lg font-bold">Thêm</button>
+                    <button id="admin-product-cancel" onclick="adminCancelEditProduct()" class="hidden px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">Hủy</button>
+                  </div>
                 </div>
               </div>
               <div id="admin-products-list" class="bg-white rounded-lg shadow overflow-x-auto"></div>
@@ -302,7 +305,8 @@
                 <h3 class="text-xl font-bold mb-4">➕ Thêm Danh Mục</h3>
                 <div class="flex gap-4">
                   <input type="text" id="admin-category-name" placeholder="Tên danh mục" class="flex-1 px-4 py-2 border rounded-lg" />
-                  <button onclick="adminAddCategory()" class="px-6 py-2 btn-primary text-white rounded-lg font-bold">Thêm</button>
+                  <button id="admin-category-submit" onclick="adminSubmitCategory()" class="px-6 py-2 btn-primary text-white rounded-lg font-bold">Thêm</button>
+                  <button id="admin-category-cancel" onclick="adminCancelEditCategory()" class="hidden px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">Hủy</button>
                 </div>
               </div>
               <div id="admin-categories-list" class="bg-white rounded-lg shadow overflow-hidden"></div>

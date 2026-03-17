@@ -30,6 +30,7 @@ DEFAULT_SITE_CONFIG: dict[str, Any] = {
     "site_phone": "1900-1234",
     "site_address": "123 Phố Huế, Hoàn Kiếm, Hà Nội",
     "footer_text": "© 2026 ToyLand - Cửa hàng đồ chơi uy tín hàng đầu",
+    "categories": ["Xếp Hình", "Xe", "Búp Bê", "Khoa Học", "Khác"],
 }
 
 
