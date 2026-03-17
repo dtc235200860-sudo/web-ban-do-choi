@@ -29,12 +29,16 @@ function money(n) {
   return Number(n || 0).toLocaleString("vi-VN") + "đ";
 }
 
-function renderProductImage(p, { size = "md" } = {}) {
+function renderProductImage(p, { size = "md", fit } = {}) {
   const src = String((p && p.image) || "").trim();
   const name = String((p && p.name) || "Sản phẩm");
   const isUrl = src.startsWith("/media/") || /\.(png|jpe?g|webp)$/i.test(src);
 
   if (isUrl) {
+    const resolvedFit = fit || (size === "xl" || size === "lg" ? "contain" : "cover");
+    if (resolvedFit === "cover") {
+      return `<img src="${src}" alt="${name}" class="w-full h-full object-cover" loading="lazy" />`;
+    }
     const h = size === "lg" ? "h-64" : size === "xl" ? "h-80" : "h-40";
     return `<img src="${src}" alt="${name}" class="w-full ${h} object-contain" loading="lazy" />`;
   }
@@ -46,8 +50,8 @@ function createProductCard(p) {
   const priceNow = discountedPrice(p);
   return `
     <div class="toy-card bg-white rounded-lg shadow overflow-hidden">
-      <div class="p-4 bg-gradient-to-br from-purple-100 to-pink-100 text-center relative flex items-center justify-center">
-        ${renderProductImage(p, { size: "md" })}
+      <div class="h-56 bg-gradient-to-br from-purple-100 to-pink-100 text-center relative flex items-center justify-center overflow-hidden">
+        ${renderProductImage(p, { size: "md", fit: "cover" })}
         ${p.isSale ? `<span class="absolute top-2 right-2 badge-sale text-white px-2 py-1 rounded text-xs font-bold">-${p.discount}%</span>` : ""}
         ${p.isFlashSale ? `<span class="absolute top-2 left-2 flash-sale-badge bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold">⚡ FLASH</span>` : ""}
       </div>
@@ -1603,8 +1607,8 @@ function displayWishlist() {
     .map(
       (p) => `
       <div class="toy-card bg-white rounded-lg shadow overflow-hidden">
-        <div class="p-4 bg-gradient-to-br from-purple-100 to-pink-100 text-center flex items-center justify-center">
-          ${renderProductImage(p, { size: "md" })}
+        <div class="h-56 bg-gradient-to-br from-purple-100 to-pink-100 text-center flex items-center justify-center overflow-hidden">
+          ${renderProductImage(p, { size: "md", fit: "cover" })}
         </div>
         <div class="p-4">
           <h3 class="font-bold text-lg mb-2">${p.name}</h3>
