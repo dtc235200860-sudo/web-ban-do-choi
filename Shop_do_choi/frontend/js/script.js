@@ -127,8 +127,8 @@ function renderBannerSlider() {
   slides.innerHTML = bannerUrls
     .map(
       (url) => `
-      <div class="min-w-full h-full flex-shrink-0">
-        <img src="${url}" alt="Banner" class="w-full h-full object-cover object-top" loading="lazy" />
+      <div class="min-w-full flex-shrink-0">
+        <img src="${url}" alt="Banner" class="w-full h-auto max-h-[70vh] object-contain mx-auto" loading="lazy" />
       </div>`
     )
     .join("");
