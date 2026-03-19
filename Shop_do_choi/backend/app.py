@@ -409,11 +409,16 @@ def iter_banner_files() -> list[str]:
     if not BANNERS_DIR.exists():
         return []
     exts = {".png", ".jpg", ".jpeg", ".webp"}
+    exclude_names = {
+        "urgent toy bargain banner for parents.png",
+    }
     out: list[str] = []
     for p in BANNERS_DIR.rglob("*"):
         if not p.is_file():
             continue
         if p.suffix.lower() not in exts:
+            continue
+        if p.name.lower() in exclude_names:
             continue
         try:
             rel = p.relative_to(BANNERS_DIR)
