@@ -6,7 +6,7 @@
     <title>ToyLand - Cửa Hàng Đồ Chơi</title>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <script src="js/script.js?v=20260319" defer></script>
+    <script src="js/script.js?v=20260319-2" defer></script>
   </head>
   <body class="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 h-full">
     <div id="app" class="h-full">
@@ -64,8 +64,8 @@
 
           <!-- Banner Slider -->
           <div id="banner-slider" class="hidden">
-            <div class="relative w-full overflow-hidden">
-              <div id="banner-slides" class="flex transition-transform duration-700 ease-in-out"></div>
+            <div class="relative w-full overflow-hidden h-56 md:h-72">
+              <div id="banner-slides" class="flex h-full transition-transform duration-700 ease-in-out"></div>
               <button onclick="bannerPrev()" class="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 w-10 h-10 rounded-full shadow flex items-center justify-center">‹</button>
               <button onclick="bannerNext()" class="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 w-10 h-10 rounded-full shadow flex items-center justify-center">›</button>
               <div id="banner-dots" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2"></div>
