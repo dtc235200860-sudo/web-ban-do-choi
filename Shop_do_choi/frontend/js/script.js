@@ -127,8 +127,12 @@ function renderBannerSlider() {
   slides.innerHTML = bannerUrls
     .map(
       (url) => `
-      <div class="min-w-full flex-shrink-0">
-        <img src="${url}" alt="Banner" class="w-full h-auto max-h-[70vh] object-contain mx-auto" loading="lazy" />
+      <div class="min-w-full h-full flex-shrink-0 relative">
+        <div class="absolute inset-0 bg-center bg-cover blur-md scale-110" style="background-image:url('${url}')"></div>
+        <div class="absolute inset-0 bg-black/10"></div>
+        <div class="relative z-10 w-full h-full flex items-center justify-center">
+          <img src="${url}" alt="Banner" class="max-w-full max-h-full object-contain" loading="lazy" />
+        </div>
       </div>`
     )
     .join("");
