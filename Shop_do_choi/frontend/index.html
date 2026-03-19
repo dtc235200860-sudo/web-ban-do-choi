@@ -6,7 +6,7 @@
     <title>ToyLand - Cửa Hàng Đồ Chơi</title>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <script src="js/script.js?v=20260317" defer></script>
+    <script src="js/script.js?v=20260319" defer></script>
   </head>
   <body class="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 h-full">
     <div id="app" class="h-full">
@@ -59,6 +59,18 @@
               <h2 id="hero-title" class="text-5xl font-bold mb-4">Thế Giới Đồ Chơi Kỳ Diệu</h2>
               <p id="hero-subtitle" class="text-xl mb-8 opacity-90">Khám phá hàng ngàn sản phẩm đồ chơi chất lượng cao cho trẻ em</p>
               <button onclick="showPage('products')" class="px-8 py-3 bg-white text-purple-600 font-bold rounded-lg hover:shadow-lg transition">Mua Ngay</button>
+            </div>
+          </div>
+
+          <!-- Banner Slider -->
+          <div id="banner-slider" class="hidden py-8 px-4">
+            <div class="max-w-7xl mx-auto">
+              <div class="relative overflow-hidden rounded-2xl shadow-lg bg-white">
+                <div id="banner-slides" class="flex transition-transform duration-700 ease-in-out"></div>
+                <button onclick="bannerPrev()" class="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 w-10 h-10 rounded-full shadow flex items-center justify-center">‹</button>
+                <button onclick="bannerNext()" class="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 w-10 h-10 rounded-full shadow flex items-center justify-center">›</button>
+                <div id="banner-dots" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2"></div>
+              </div>
             </div>
           </div>
 

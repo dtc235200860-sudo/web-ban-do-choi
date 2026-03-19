@@ -14,6 +14,9 @@ let currentPage = "home";
 let categories = ["Xếp Hình", "Xe", "Búp Bê", "Khoa Học"];
 let compareList = [];
 let chatHistory = [];
+let bannerUrls = [];
+let bannerIndex = 0;
+let bannerTimer = null;
 
 let flashSaleEndMs = Date.now() + 60 * 60 * 1000;
 let adminEditingProductId = null;
@@ -92,6 +95,92 @@ async function apiJson(path, { method = "GET", body } = {}) {
   if (!res.ok) throw new Error((payload && payload.error) || res.statusText);
   if (payload && payload.ok === false) throw new Error(payload.error || "Request failed");
   return payload && Object.prototype.hasOwnProperty.call(payload, "data") ? payload.data : payload;
+}
+
+async function refreshBanners() {
+  try {
+    const data = (await apiJson("/api/banners")) || [];
+    bannerUrls = Array.isArray(data) ? data.slice(0, 3) : [];
+  } catch {
+    bannerUrls = [];
+  }
+  renderBannerSlider();
+  updateBannerAutoplay();
+}
+
+function renderBannerSlider() {
+  const wrap = document.getElementById("banner-slider");
+  const slides = document.getElementById("banner-slides");
+  const dots = document.getElementById("banner-dots");
+  if (!wrap || !slides || !dots) return;
+
+  if (!bannerUrls || bannerUrls.length === 0) {
+    wrap.classList.add("hidden");
+    slides.innerHTML = "";
+    dots.innerHTML = "";
+    return;
+  }
+
+  wrap.classList.remove("hidden");
+  bannerIndex = Math.max(0, Math.min(bannerIndex, bannerUrls.length - 1));
+
+  slides.innerHTML = bannerUrls
+    .map(
+      (url) => `
+      <div class="w-full flex-shrink-0">
+        <img src="${url}" alt="Banner" class="w-full h-56 md:h-72 object-cover" loading="lazy" />
+      </div>`
+    )
+    .join("");
+
+  dots.innerHTML = bannerUrls
+    .map((_, i) => {
+      const active = i === bannerIndex;
+      return `<button onclick="bannerGo(${i})" class="w-2.5 h-2.5 rounded-full ${active ? "bg-purple-600" : "bg-white/80"} shadow"></button>`;
+    })
+    .join("");
+
+  slides.style.transform = `translateX(-${bannerIndex * 100}%)`;
+
+  if (!wrap.dataset.bannerHoverBound) {
+    wrap.addEventListener("mouseenter", () => stopBannerAutoplay());
+    wrap.addEventListener("mouseleave", () => updateBannerAutoplay());
+    wrap.dataset.bannerHoverBound = "1";
+  }
+}
+
+function bannerGo(i) {
+  if (!bannerUrls || bannerUrls.length === 0) return;
+  bannerIndex = (i + bannerUrls.length) % bannerUrls.length;
+  renderBannerSlider();
+  updateBannerAutoplay();
+}
+
+function bannerNext() {
+  bannerGo(bannerIndex + 1);
+}
+
+function bannerPrev() {
+  bannerGo(bannerIndex - 1);
+}
+
+function stopBannerAutoplay() {
+  if (bannerTimer) {
+    clearInterval(bannerTimer);
+    bannerTimer = null;
+  }
+}
+
+function updateBannerAutoplay() {
+  stopBannerAutoplay();
+  const wrap = document.getElementById("banner-slider");
+  if (!wrap || wrap.classList.contains("hidden")) return;
+  if (currentPage !== "home") return;
+  if (!bannerUrls || bannerUrls.length <= 1) return;
+  bannerTimer = setInterval(() => {
+    bannerIndex = (bannerIndex + 1) % bannerUrls.length;
+    renderBannerSlider();
+  }, 4000);
 }
 
 async function refreshProducts() {
@@ -184,6 +273,7 @@ function showPage(page) {
   if (page === "admin") showAdminTab("dashboard");
 
   updateUI();
+  updateBannerAutoplay();
 }
 
 function displayProducts(products) {
@@ -1983,6 +2073,7 @@ async function init() {
   } catch {
     seedData();
   }
+  await refreshBanners();
   syncCategoryOptionsFromProducts();
   loadChatHistory();
 

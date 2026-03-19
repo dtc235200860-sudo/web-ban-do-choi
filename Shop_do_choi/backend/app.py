@@ -21,6 +21,14 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 DB_PATH = BASE_DIR / "database" / "db.sqlite3"
 _EXTERNAL_TOYS_DIR = Path("D:/ảnh đồ chơi")
 TOYS_IMAGE_DIR = _EXTERNAL_TOYS_DIR if _EXTERNAL_TOYS_DIR.exists() else (BASE_DIR / "ảnh đồ chơi")
+_EXTERNAL_BANNERS_DIR = Path("D:/baner quảng cáo")
+_FALLBACK_BANNERS_DIR = BASE_DIR / "baner quảng cáo"
+_ALT_FALLBACK_BANNERS_DIR = BASE_DIR / "banner quảng cáo"
+BANNERS_DIR = (
+    _EXTERNAL_BANNERS_DIR
+    if _EXTERNAL_BANNERS_DIR.exists()
+    else (_FALLBACK_BANNERS_DIR if _FALLBACK_BANNERS_DIR.exists() else _ALT_FALLBACK_BANNERS_DIR)
+)
 
 DEFAULT_SITE_CONFIG: dict[str, Any] = {
     "site_name": "ToyLand",
@@ -163,6 +171,11 @@ def normalize_product(p: dict[str, Any]) -> dict[str, Any]:
 def toy_media_url(rel_posix: str) -> str:
     rel_posix = rel_posix.lstrip("/")
     return "/media/toys/" + urllib.parse.quote(rel_posix)
+
+
+def banner_media_url(rel_posix: str) -> str:
+    rel_posix = rel_posix.lstrip("/")
+    return "/media/banners/" + urllib.parse.quote(rel_posix)
 
 
 SAMPLE_PRODUCTS: list[dict[str, Any]] = [
@@ -386,6 +399,28 @@ def iter_toy_image_files() -> list[tuple[str, str]]:
         rel_posix = rel.as_posix()
         cat_dir = rel.parts[0] if rel.parts else ""
         out.append((cat_dir, rel_posix))
+    return out
+
+
+def iter_banner_files() -> list[str]:
+    """
+    Returns a list of rel_posix_path for all image files under BANNERS_DIR.
+    """
+    if not BANNERS_DIR.exists():
+        return []
+    exts = {".png", ".jpg", ".jpeg", ".webp"}
+    out: list[str] = []
+    for p in BANNERS_DIR.rglob("*"):
+        if not p.is_file():
+            continue
+        if p.suffix.lower() not in exts:
+            continue
+        try:
+            rel = p.relative_to(BANNERS_DIR)
+        except Exception:
+            continue
+        out.append(rel.as_posix())
+    out.sort(key=lambda x: x.lower())
     return out
 
 
@@ -668,6 +703,17 @@ class AppHandler(SimpleHTTPRequestHandler):
                 local = local / w
             return str(local)
 
+        # Serve banners from BANNERS_DIR
+        if path.startswith("/media/banners/"):
+            sub = path[len("/media/banners/") :]
+            sub = urllib.parse.unquote(sub)
+            sub = posixpath.normpath(sub).lstrip("/")
+            words = [w for w in sub.split("/") if w and w not in (".", "..")]
+            local = BANNERS_DIR
+            for w in words:
+                local = local / w
+            return str(local)
+
         # Serve frontend files from FRONTEND_DIR
         words = [w for w in path.split("/") if w]
         local = FRONTEND_DIR
@@ -728,6 +774,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return json_response(self, 200, {"ok": True})
             if parsed.path == "/api/config":
                 return json_response(self, 200, {"ok": True, "data": db_get_site_config(conn)})
+            if parsed.path == "/api/banners":
+                files = iter_banner_files()
+                urls = [banner_media_url(p) for p in files]
+                return json_response(self, 200, {"ok": True, "data": urls})
             if parsed.path == "/api/products":
                 return json_response(self, 200, {"ok": True, "data": db_get_products(conn)})
             if parsed.path == "/api/coupons":
