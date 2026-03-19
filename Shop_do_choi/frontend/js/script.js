@@ -128,7 +128,7 @@ function renderBannerSlider() {
     .map(
       (url) => `
       <div class="min-w-full h-full flex-shrink-0">
-        <img src="${url}" alt="Banner" class="w-full h-full object-cover" loading="lazy" />
+        <img src="${url}" alt="Banner" class="w-full h-full object-cover object-top" loading="lazy" />
       </div>`
     )
     .join("");
