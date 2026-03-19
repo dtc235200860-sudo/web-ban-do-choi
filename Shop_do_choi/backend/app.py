@@ -934,8 +934,20 @@ def run(host: str = "127.0.0.1", port: int = 8000) -> None:
 
 
 if __name__ == "__main__":
-    host = "127.0.0.1"
+    # Bind to all interfaces so other devices on the same Wi‑Fi/LAN can access the site.
+    # If you only want local access, change this back to "127.0.0.1".
+    host = "0.0.0.0"
     port = 8000
+    # Usage:
+    #   python backend/app.py               -> 0.0.0.0:8000
+    #   python backend/app.py 8000          -> 0.0.0.0:8000
+    #   python backend/app.py 192.168.1.10 8000 -> 192.168.1.10:8000
     if len(sys.argv) >= 2:
-        port = int(sys.argv[1])
+        arg1 = sys.argv[1]
+        if arg1.isdigit():
+            port = int(arg1)
+        else:
+            host = arg1
+            if len(sys.argv) >= 3 and str(sys.argv[2]).isdigit():
+                port = int(sys.argv[2])
     run(host, port)
