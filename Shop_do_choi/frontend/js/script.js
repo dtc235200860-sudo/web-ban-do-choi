@@ -1562,7 +1562,52 @@ function getChatbotResponse(message) {
   }
 
   // Default
-  return "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)";
+  return {
+    fallback: true,
+    html: false,
+    text: "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)",
+  };
+}
+
+function normalizeChatResponse(res) {
+  if (typeof res === "string") return { text: res, html: false, fallback: false };
+  if (res && typeof res === "object") {
+    return { text: String(res.text || ""), html: !!res.html, fallback: !!res.fallback };
+  }
+  return { text: String(res || ""), html: false, fallback: false };
+}
+
+function stripHtmlBasic(s) {
+  return String(s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function formatPlainTextAsHtml(s) {
+  return escapeHtml(String(s || "")).replace(/\n/g, "<br>");
+}
+
+function buildGeminiHistory(limit = 12) {
+  const items = (chatHistory || []).slice(-limit);
+  return items
+    .map((m) => {
+      const role = m.sender === "user" ? "user" : "model";
+      const text = m.html ? stripHtmlBasic(m.text) : String(m.text || "");
+      return { role, text };
+    })
+    .filter((x) => x.text && x.text.trim());
+}
+
+async function getAssistantResponse(message) {
+  const local = normalizeChatResponse(getChatbotResponse(message));
+  if (!local.fallback) return local;
+
+  try {
+    const data = await apiJson("/api/chat/gemini", { method: "POST", body: { message, history: buildGeminiHistory(12) } });
+    const reply = (data && data.reply) || "";
+    if (!reply) return local;
+    return { text: formatPlainTextAsHtml(reply), html: true, fallback: false };
+  } catch {
+    return local;
+  }
 }
 
 function sendChatMessage() {
@@ -1571,11 +1616,10 @@ function sendChatMessage() {
   if (!message) return;
   addChatMessage("user", message);
   input.value = "";
-  setTimeout(() => {
-    const res = getChatbotResponse(message);
-    if (typeof res === "string") addChatMessage("bot", res, { html: false });
-    else addChatMessage("bot", res.text, { html: !!res.html });
-  }, 300);
+  (async () => {
+    const res = await getAssistantResponse(message);
+    addChatMessage("bot", res.text, { html: !!res.html });
+  })();
 }
 
 function handleChatKeypress(event) {
@@ -1584,11 +1628,10 @@ function handleChatKeypress(event) {
 
 function sendQuickMessage(message) {
   addChatMessage("user", message);
-  setTimeout(() => {
-    const res = getChatbotResponse(message);
-    if (typeof res === "string") addChatMessage("bot", res, { html: false });
-    else addChatMessage("bot", res.text, { html: !!res.html });
-  }, 300);
+  (async () => {
+    const res = await getAssistantResponse(message);
+    addChatMessage("bot", res.text, { html: !!res.html });
+  })();
 }
 
 function requestAgent() {

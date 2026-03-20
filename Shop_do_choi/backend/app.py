@@ -9,6 +9,7 @@ import sys
 import time
 import traceback
 import urllib.parse
+import urllib.request
 import unicodedata
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -658,6 +659,62 @@ def db_upsert_coupon(conn: sqlite3.Connection, coupon: dict[str, Any]) -> dict[s
     return {"code": code, "discount": discount, "maxUse": max_use, "used": used}
 
 
+def gemini_generate_reply(message: str, history: list[dict[str, Any]] | None = None) -> str:
+    api_key = str(os.environ.get("GEMINI_API_KEY") or "").strip()
+    if not api_key:
+        raise RuntimeError("Missing GEMINI_API_KEY env var")
+
+    model = str(os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash").strip()
+    message = str(message or "").strip()
+    if not message:
+        return "Bạn vui lòng nhập nội dung tin nhắn nhé."
+
+    # Gemini expects roles: "user" / "model"
+    contents: list[dict[str, Any]] = []
+    for item in (history or [])[-12:]:
+        role_in = str(item.get("role") or "").strip().lower()
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        role = "model" if role_in in {"model", "assistant", "bot"} else "user"
+        contents.append({"role": role, "parts": [{"text": text}]})
+
+    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    payload = {
+        "systemInstruction": {
+            "parts": [
+                {
+                    "text": (
+                        "Bạn là trợ lý bán hàng ToyLand. Trả lời bằng tiếng Việt, ngắn gọn, rõ ràng.\n"
+                        "Nếu người dùng hỏi chung chung, hãy hỏi lại 1-2 câu để làm rõ (độ tuổi bé, ngân sách, loại đồ chơi).\n"
+                        "Không trả về HTML, chỉ trả về văn bản."
+                    )
+                }
+            ]
+        },
+        "contents": contents,
+        "generationConfig": {"temperature": 0.6, "maxOutputTokens": 512},
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(model, safe='')}:generateContent"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json; charset=utf-8", "X-Goog-Api-Key": api_key},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read().decode("utf-8", errors="replace")
+        data = json.loads(raw or "{}")
+
+    try:
+        return str(data["candidates"][0]["content"]["parts"][0].get("text") or "").strip() or "Mình chưa có câu trả lời phù hợp."
+    except Exception:
+        # Best-effort fallback for other response shapes
+        return str(data.get("text") or data.get("output") or "Mình chưa có câu trả lời phù hợp.").strip()
+
+
 def db_seed_if_empty(conn: sqlite3.Connection) -> dict[str, Any]:
     row = conn.execute("SELECT COUNT(1) AS c FROM products").fetchone()
     if row and int(row["c"]) > 0:
@@ -810,6 +867,15 @@ class AppHandler(SimpleHTTPRequestHandler):
                 db_upgrade_imported_product_names(conn)
                 conn.commit()
                 return json_response(self, 200, {"ok": True, "data": result})
+
+            if parsed.path == "/api/chat/gemini":
+                try:
+                    msg = str(body.get("message") or "").strip()
+                    history = body.get("history") or []
+                    reply = gemini_generate_reply(msg, history if isinstance(history, list) else [])
+                    return json_response(self, 200, {"ok": True, "data": {"reply": reply}})
+                except Exception as exc:
+                    return json_response(self, 500, {"ok": False, "error": str(exc)})
 
             if parsed.path == "/api/products":
                 product = db_put_product(conn, body)
