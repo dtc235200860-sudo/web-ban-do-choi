@@ -1406,13 +1406,50 @@ function getChatbotResponse(message) {
 
   // Nhóm 1: Thông tin sản phẩm & chất lượng
   const productInfoRules = [
-    { keys: ["abs", "pp", "nhua", "chat lieu"], answer: "Để trả lời đúng (ABS/PP/nhựa tái chế/gỗ/vải), bạn cho mình tên sản phẩm (hoặc ảnh/mã) nhé." },
+    // A. Lắp ráp kỹ thuật (Gundam/Lego/Robot)
+    {
+      keys: ["khung xuong", "metal", "metal structure", "mgex", "strike freedom", "12 trong 1", "12-in-1", "pioneer"],
+      answer:
+        "Các dòng lắp ráp bên mình như MGEX Strike Freedom có khung xương mạ vàng cực chi tiết; còn Robot Pioneer 12‑in‑1 có thể biến hình thành 12 mẫu (máy bay, xe tăng…) từ cùng một bộ mảnh ghép đó ạ. Bạn muốn tư vấn theo độ tuổi hay theo mức độ khó lắp?",
+    },
+
+    // B. Mô hình Anime (One Piece)
+    {
+      keys: ["figure", "luffy", "zoro", "one piece", "tinh", "khop", "khớp"],
+      answer:
+        "Mô hình Luffy (18cm) và Zoro bên mình là mô hình tĩnh (Figure), tập trung vào độ chi tiết sắc nét và thần thái nhân vật, rất bền màu và chắc chắn, phù hợp trưng bày ạ. Bạn thích Luffy hay Zoro để mình gửi link mẫu đúng nhất?",
+    },
+
+    // C. Điều khiển từ xa (RC)
+    {
+      keys: ["rc", "drift", "offroad", "off-road", "toc do", "tốc độ", "km/h"],
+      answer:
+        "Xe RC bên mình có 2 dòng chính: Xe Drift tím chuyên chạy đường phẳng tốc độ cao, và Xe Off‑road King X chuyên leo địa hình gồ ghề với giảm xóc cực khỏe ạ. Bạn muốn chạy trong nhà (drift) hay chạy ngoài trời/địa hình (off-road)?",
+    },
+
+    // D. Nhạc cụ (Piano)
+    {
+      keys: ["yamaha", "piano dien", "piano điện", "cam ung luc", "cảm ứng lực", "88 phim", "88 phím"],
+      answer:
+        "Dòng Piano điện Yamaha bên mình có 88 phím tiêu chuẩn, hỗ trợ kết nối tai nghe và có độ nặng phím chân thực như đàn cơ, rất hợp cho bé bắt đầu học nhạc ạ. Bạn muốn tư vấn cho bé mấy tuổi và nhu cầu học/giải trí?",
+    },
+
+    // Chất liệu (giữ key, trả lời thông minh hơn theo các siêu phẩm đang có)
+    {
+      keys: ["abs", "pp", "nhua", "chat lieu"],
+      answer:
+        "Về chất liệu: các bộ lắp ráp như Lego/Gundam (MGEX) thường dùng nhựa ABS/PS cứng cáp; Robot Pioneer cũng là nhựa kỹ thuật chắc chắn. Đồ chơi kỹ thuật gỗ thì ưu tiên gỗ + sơn an toàn. Bạn đang hỏi mẫu nào (Lego, MGEX, Robot Pioneer hay đồ gỗ) để mình nói đúng chi tiết?",
+    },
     { keys: ["cr", "chung chi"], answer: "Về chứng chỉ an toàn CR: bạn gửi tên/mã sản phẩm để mình kiểm tra thông tin theo lô hàng/nhà sản xuất nhé." },
     { keys: ["son", "go", "goc nuoc"], answer: "Đồ chơi gỗ nên dùng sơn gốc nước/không độc hại và bề mặt mịn. Bạn cho mình tên/mã sản phẩm để mình xác nhận loại sơn/chất liệu." },
     { keys: ["ngam", "hay ngam", "an toan nhat"], answer: "Bé hay ngậm đồ chơi: ưu tiên đồ chơi 1 khối, không chi tiết nhỏ, vật liệu an toàn, bo tròn cạnh. Bạn cho mình độ tuổi bé và loại đồ chơi bạn định mua nhé." },
     { keys: ["lego", "manh ghep", "chi tiet", "bao nhieu manh"], answer: "Bạn cho mình tên/mã bộ Lego/xếp hình để mình báo chính xác số mảnh và độ tuổi phù hợp nhé." },
     { keys: ["kich thuoc", "lap xong", "bao nhieu cm"], answer: "Bạn gửi tên/mã sản phẩm để mình cung cấp kích thước sau khi lắp (cm) chính xác nhé." },
-    { keys: ["pin", "aa", "aaa"], answer: "Bạn cho mình tên/mã sản phẩm để mình kiểm tra dùng pin AA hay AAA và có kèm pin trong hộp không nhé." },
+    {
+      keys: ["pin", "aa", "aaa"],
+      answer:
+        "Về pin: các món như Xe điều khiển (RC) và Piano điện thường dùng AA/AAA; một số bộ Lego/Ninjago có đèn/âm thanh cũng có thể cần pin tuỳ mẫu. Bạn đang xem mẫu nào để mình báo đúng loại pin và có kèm pin không nhé.",
+    },
     { keys: ["kem pin", "co pin"], answer: "Tuỳ mẫu có kèm pin hoặc không. Bạn gửi tên/mã sản phẩm để mình trả lời chính xác nhé." },
     { keys: ["chinh hang", "noi dia", "trung quoc", "hang gi"], answer: "Bạn gửi giúp mình tên/mã sản phẩm để mình xác nhận nguồn gốc/hãng (chính hãng hay nội địa) và thông tin bảo hành." },
     { keys: ["co nhac", "nhac", "tieng anh", "tieng viet"], answer: "Bạn gửi tên/mã sản phẩm có nhạc để mình kiểm tra có nhạc không và ngôn ngữ (Anh/Việt) nhé." },
