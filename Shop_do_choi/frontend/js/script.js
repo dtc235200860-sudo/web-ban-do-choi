@@ -32,6 +32,32 @@ function money(n) {
   return Number(n || 0).toLocaleString("vi-VN") + "đ";
 }
 
+function safeDecodeURIComponent(value) {
+  const s = String(value ?? "");
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+function getProductDisplayName(p) {
+  const rawName = p && typeof p.name !== "undefined" ? p.name : "";
+  return safeDecodeURIComponent(rawName);
+}
+
+function renderProductThumb(p) {
+  const src = String((p && p.image) || "").trim();
+  const name = getProductDisplayName(p) || "Sản phẩm";
+  const isUrl = src.startsWith("/media/") || /\.(png|jpe?g|webp)$/i.test(src);
+
+  if (isUrl) {
+    return `<img src="${src}" alt="${escapeHtml(name)}" class="w-10 h-10 rounded object-cover bg-white" loading="lazy" />`;
+  }
+
+  return `<span class="text-xl leading-none">${escapeHtml(src || "🎁")}</span>`;
+}
+
 function renderProductImage(p, { size = "md", fit } = {}) {
   const src = String((p && p.image) || "").trim();
   const name = String((p && p.name) || "Sản phẩm");
@@ -1406,50 +1432,13 @@ function getChatbotResponse(message) {
 
   // Nhóm 1: Thông tin sản phẩm & chất lượng
   const productInfoRules = [
-    // A. Lắp ráp kỹ thuật (Gundam/Lego/Robot)
-    {
-      keys: ["khung xuong", "metal", "metal structure", "mgex", "strike freedom", "12 trong 1", "12-in-1", "pioneer"],
-      answer:
-        "Các dòng lắp ráp bên mình như MGEX Strike Freedom có khung xương mạ vàng cực chi tiết; còn Robot Pioneer 12‑in‑1 có thể biến hình thành 12 mẫu (máy bay, xe tăng…) từ cùng một bộ mảnh ghép đó ạ. Bạn muốn tư vấn theo độ tuổi hay theo mức độ khó lắp?",
-    },
-
-    // B. Mô hình Anime (One Piece)
-    {
-      keys: ["figure", "luffy", "zoro", "one piece", "tinh", "khop", "khớp"],
-      answer:
-        "Mô hình Luffy (18cm) và Zoro bên mình là mô hình tĩnh (Figure), tập trung vào độ chi tiết sắc nét và thần thái nhân vật, rất bền màu và chắc chắn, phù hợp trưng bày ạ. Bạn thích Luffy hay Zoro để mình gửi link mẫu đúng nhất?",
-    },
-
-    // C. Điều khiển từ xa (RC)
-    {
-      keys: ["rc", "drift", "offroad", "off-road", "toc do", "tốc độ", "km/h"],
-      answer:
-        "Xe RC bên mình có 2 dòng chính: Xe Drift tím chuyên chạy đường phẳng tốc độ cao, và Xe Off‑road King X chuyên leo địa hình gồ ghề với giảm xóc cực khỏe ạ. Bạn muốn chạy trong nhà (drift) hay chạy ngoài trời/địa hình (off-road)?",
-    },
-
-    // D. Nhạc cụ (Piano)
-    {
-      keys: ["yamaha", "piano dien", "piano điện", "cam ung luc", "cảm ứng lực", "88 phim", "88 phím"],
-      answer:
-        "Dòng Piano điện Yamaha bên mình có 88 phím tiêu chuẩn, hỗ trợ kết nối tai nghe và có độ nặng phím chân thực như đàn cơ, rất hợp cho bé bắt đầu học nhạc ạ. Bạn muốn tư vấn cho bé mấy tuổi và nhu cầu học/giải trí?",
-    },
-
-    // Chất liệu (giữ key, trả lời thông minh hơn theo các siêu phẩm đang có)
-    {
-      keys: ["abs", "pp", "nhua", "chat lieu"],
-      answer:
-        "Về chất liệu: các bộ lắp ráp như Lego/Gundam (MGEX) thường dùng nhựa ABS/PS cứng cáp; Robot Pioneer cũng là nhựa kỹ thuật chắc chắn. Đồ chơi kỹ thuật gỗ thì ưu tiên gỗ + sơn an toàn. Bạn đang hỏi mẫu nào (Lego, MGEX, Robot Pioneer hay đồ gỗ) để mình nói đúng chi tiết?",
-    },
+    { keys: ["abs", "pp", "nhua", "chat lieu"], answer: "Để trả lời đúng (ABS/PP/nhựa tái chế/gỗ/vải), bạn cho mình tên sản phẩm (hoặc ảnh/mã) nhé." },
     { keys: ["cr", "chung chi"], answer: "Về chứng chỉ an toàn CR: bạn gửi tên/mã sản phẩm để mình kiểm tra thông tin theo lô hàng/nhà sản xuất nhé." },
-    { keys: ["son", "go", "goc nuoc"], answer: "Đồ chơi gỗ nên dùng sơn gốc nước/không độc hại và bề mặt mịn. Bạn cho mình tên/mã sản phẩm để mình xác nhận loại sơn/chất liệu." },
+    { keys: ["son", "do go", "goc nuoc"], answer: "Đồ chơi gỗ nên dùng sơn gốc nước/không độc hại và bề mặt mịn. Bạn cho mình tên/mã sản phẩm để mình xác nhận loại sơn/chất liệu." },
     { keys: ["ngam", "hay ngam", "an toan nhat"], answer: "Bé hay ngậm đồ chơi: ưu tiên đồ chơi 1 khối, không chi tiết nhỏ, vật liệu an toàn, bo tròn cạnh. Bạn cho mình độ tuổi bé và loại đồ chơi bạn định mua nhé." },
-    { keys: ["lego", "manh ghep", "chi tiet", "bao nhieu manh"], answer: "Bạn cho mình tên/mã bộ Lego/xếp hình để mình báo chính xác số mảnh và độ tuổi phù hợp nhé." },
+    { keys: [ "manh ghep", "chi tiet", "bao nhieu manh"], answer: "Bạn cho mình tên/mã bộ Lego/xếp hình để mình báo chính xác số mảnh và độ tuổi phù hợp nhé." },
     { keys: ["kich thuoc", "lap xong", "bao nhieu cm"], answer: "Bạn gửi tên/mã sản phẩm để mình cung cấp kích thước sau khi lắp (cm) chính xác nhé." },
-    {
-      keys: ["pin", "aa", "aaa"],
-      answer:
-        "Về pin: các món như Xe điều khiển (RC) và Piano điện thường dùng AA/AAA; một số bộ Lego/Ninjago có đèn/âm thanh cũng có thể cần pin tuỳ mẫu. Bạn đang xem mẫu nào để mình báo đúng loại pin và có kèm pin không nhé.",
-    },
+    { keys: ["pin", "aa", "aaa"], answer: "Bạn cho mình tên/mã sản phẩm để mình kiểm tra dùng pin AA hay AAA và có kèm pin trong hộp không nhé." },
     { keys: ["kem pin", "co pin"], answer: "Tuỳ mẫu có kèm pin hoặc không. Bạn gửi tên/mã sản phẩm để mình trả lời chính xác nhé." },
     { keys: ["chinh hang", "noi dia", "trung quoc", "hang gi"], answer: "Bạn gửi giúp mình tên/mã sản phẩm để mình xác nhận nguồn gốc/hãng (chính hãng hay nội địa) và thông tin bảo hành." },
     { keys: ["co nhac", "nhac", "tieng anh", "tieng viet"], answer: "Bạn gửi tên/mã sản phẩm có nhạc để mình kiểm tra có nhạc không và ngôn ngữ (Anh/Việt) nhé." },
@@ -1458,21 +1447,12 @@ function getChatbotResponse(message) {
     { keys: ["dat nan", "kho", "kho cung"], answer: "Đất nặn: tuỳ loại có khô theo thời gian. Bạn cho mình tên/loại đất nặn để mình hướng dẫn bảo quản (đậy kín, hộp zip) nhé." },
     { keys: ["bup be", "thay quan ao", "chai toc"], answer: "Búp bê đa phần thay quần áo và chải tóc được (tuỳ tóc sợi/tóc cấy). Bạn gửi mẫu búp bê để mình xác nhận phụ kiện đi kèm nhé." },
     { keys: ["robot", "biet noi", "cam bien lui", "cam bien"], answer: "Robot: tuỳ mẫu có nói/cảm biến. Bạn gửi tên/mã robot để mình kiểm tra tính năng (nói, tránh vật cản, cảm biến lùi) nhé." },
-    { keys: ["nau an", "dung nuoc", "nuoc that"], answer: "Đồ chơi nấu ăn: có mẫu dùng nước thật, có mẫu chỉ mô phỏng. Bạn gửi tên/mã bộ để mình xác nhận nhé." },
-    { keys: ["the hoc", "plastic", "ep", "chong tham"], answer: "Bộ thẻ học: bạn gửi tên/mã để mình kiểm tra có ép plastic/chống thấm không nhé." },
-    { keys: ["sach vai", "giat", "may giat"], answer: "Sách vải: thường giặt tay là tốt nhất, một số loại giặt máy chế độ nhẹ. Bạn gửi tên/mẫu để mình hướng dẫn chi tiết." },
-    { keys: ["xe choi chan", "tai trong", "bao nhieu kg"], answer: "Xe chòi chân: bạn gửi tên/mã xe để mình báo tải trọng tối đa (kg) và độ tuổi phù hợp nhé." },
-    { keys: ["goc nhon", "nguy hiem"], answer: "Bạn gửi tên/mã sản phẩm để mình kiểm tra thiết kế (góc nhọn/chi tiết nhỏ). Nếu cho mình độ tuổi bé thì mình tư vấn chuẩn hơn." },
-    { keys: ["may nguoi", "choi cung", "bao nhieu nguoi"], answer: "Bạn cho mình tên trò chơi/boardgame để mình báo số người chơi phù hợp (2–4, 4–6…) nhé." },
-    { keys: ["huong dan", "lap rap", "hinh ve"], answer: "Bạn cho mình tên/mã bộ lắp ráp để mình xác nhận có hướng dẫn hình ảnh chi tiết trong hộp không nhé." },
+    { keys: ["piano", "cam ung luc", "phim nang", "dien tu"], answer: "Đàn Piano điện của bạn có tính năng Touch Response (gõ mạnh kêu to, gõ nhẹ kêu nhỏ). Bạn có cần hướng dẫn kết nối App học đàn không?" },
+    { keys: ["rubik", "nam cham", "tron", "speedcube"], answer:"Nếu là dòng Speedcube có nam châm, xoay sẽ rất mượt. Bạn đang dùng Rubik 3x3 hay các khối biến thể khác?" },
     { keys: ["gau bong", "rung long", "rut long"], answer: "Gấu bông: ưu tiên vải mềm, may chắc, ít rụng lông. Bạn gửi mẫu bạn đang xem để mình tư vấn loại vải và cách vệ sinh." },
     { keys: ["bang ve", "dien tu", "xoa tung phan"], answer: "Bảng vẽ điện tử: tuỳ mẫu có xoá từng phần hoặc xoá toàn bộ. Bạn gửi tên/mã bảng vẽ để mình xác nhận nhé." },
     { keys: ["hoc so", "chu cai", "so va chu"], answer: "Nếu mục tiêu học số/chữ cái: bạn cho mình độ tuổi bé để mình gợi ý bộ thẻ học/đồ chơi giáo dục phù hợp nhé." },
-    { keys: ["dieu", "gio nhe", "de bay"], answer: "Diều: gió nhẹ vẫn bay được hay không tuỳ khung và diện tích cánh. Bạn gửi mẫu diều để mình tư vấn điều kiện gió phù hợp." },
-    { keys: ["be boi", "phao", "bom dien"], answer: "Bể bơi phao: tuỳ set có kèm bơm điện hay không. Bạn gửi tên/mã sản phẩm để mình kiểm tra nhé." },
-    { keys: ["cau truot", "lap dat", "kho khong"], answer: "Cầu trượt: thường lắp theo khớp và ốc. Bạn gửi mẫu để mình nói độ khó lắp và dụng cụ cần (nếu có)." },
-    { keys: ["trang diem", "kich ung", "da"], answer: "Đồ chơi trang điểm: nên chọn loại dành cho trẻ em, dễ rửa, an toàn da. Bạn gửi tên/mã để mình kiểm tra thành phần/khuyến cáo độ tuổi nhé." },
-    { keys: ["mau ve", "rua sach", "dinh quan ao"], answer: "Bộ màu vẽ: tuỳ loại (màu nước, marker…). Bạn gửi tên/mã bộ màu để mình xác nhận có rửa sạch được không và cách xử lý khi dính quần áo nhé." },
+    { keys: ["khung kim loai", "diecast", "hop kim","metal structure"], answer: "Các mẫu Gundam cao cấp có khung xương bằng hợp kim (diecast). Bạn cần kiểm tra chi tiết kim loại cho mẫu mecha nào?" },
   ];
 
   for (const r of productInfoRules) {
@@ -1599,52 +1579,7 @@ function getChatbotResponse(message) {
   }
 
   // Default
-  return {
-    fallback: true,
-    html: false,
-    text: "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)",
-  };
-}
-
-function normalizeChatResponse(res) {
-  if (typeof res === "string") return { text: res, html: false, fallback: false };
-  if (res && typeof res === "object") {
-    return { text: String(res.text || ""), html: !!res.html, fallback: !!res.fallback };
-  }
-  return { text: String(res || ""), html: false, fallback: false };
-}
-
-function stripHtmlBasic(s) {
-  return String(s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function formatPlainTextAsHtml(s) {
-  return escapeHtml(String(s || "")).replace(/\n/g, "<br>");
-}
-
-function buildGeminiHistory(limit = 12) {
-  const items = (chatHistory || []).slice(-limit);
-  return items
-    .map((m) => {
-      const role = m.sender === "user" ? "user" : "model";
-      const text = m.html ? stripHtmlBasic(m.text) : String(m.text || "");
-      return { role, text };
-    })
-    .filter((x) => x.text && x.text.trim());
-}
-
-async function getAssistantResponse(message) {
-  const local = normalizeChatResponse(getChatbotResponse(message));
-  if (!local.fallback) return local;
-
-  try {
-    const data = await apiJson("/api/chat/gemini", { method: "POST", body: { message, history: buildGeminiHistory(12) } });
-    const reply = (data && data.reply) || "";
-    if (!reply) return local;
-    return { text: formatPlainTextAsHtml(reply), html: true, fallback: false };
-  } catch {
-    return local;
-  }
+  return "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)";
 }
 
 function sendChatMessage() {
@@ -1653,10 +1588,11 @@ function sendChatMessage() {
   if (!message) return;
   addChatMessage("user", message);
   input.value = "";
-  (async () => {
-    const res = await getAssistantResponse(message);
-    addChatMessage("bot", res.text, { html: !!res.html });
-  })();
+  setTimeout(() => {
+    const res = getChatbotResponse(message);
+    if (typeof res === "string") addChatMessage("bot", res, { html: false });
+    else addChatMessage("bot", res.text, { html: !!res.html });
+  }, 300);
 }
 
 function handleChatKeypress(event) {
@@ -1665,10 +1601,11 @@ function handleChatKeypress(event) {
 
 function sendQuickMessage(message) {
   addChatMessage("user", message);
-  (async () => {
-    const res = await getAssistantResponse(message);
-    addChatMessage("bot", res.text, { html: !!res.html });
-  })();
+  setTimeout(() => {
+    const res = getChatbotResponse(message);
+    if (typeof res === "string") addChatMessage("bot", res, { html: false });
+    else addChatMessage("bot", res.text, { html: !!res.html });
+  }, 300);
 }
 
 function requestAgent() {
@@ -1994,7 +1931,12 @@ function updateAdminReports() {
             .map(
               (p) => `
             <tr class="border-b hover:bg-gray-50">
-              <td class="px-4 py-2">${p.image || "🎁"} ${p.name}</td>
+              <td class="px-4 py-2">
+                <div class="flex items-center gap-3">
+                  ${renderProductThumb(p)}
+                  <span class="font-medium">${escapeHtml(getProductDisplayName(p))}</span>
+                </div>
+              </td>
               <td class="px-4 py-2">${money(discountedPrice(p))}</td>
               <td class="px-4 py-2">⭐ ${Number(p.rating || 0).toFixed(1)}</td>
               <td class="px-4 py-2">${Number(p.reviews || 0)}</td>
@@ -2045,7 +1987,12 @@ function updateAdminReports() {
               }
               return `
               <tr class="border-b hover:bg-gray-50">
-                <td class="px-4 py-2">${p.image || "🎁"} ${p.name}</td>
+                <td class="px-4 py-2">
+                  <div class="flex items-center gap-3">
+                    ${renderProductThumb(p)}
+                    <span class="font-medium">${escapeHtml(getProductDisplayName(p))}</span>
+                  </div>
+                </td>
                 <td class="px-4 py-2 font-bold">${stock}</td>
                 <td class="px-4 py-2 font-bold ${color}">${status}</td>
               </tr>`;
