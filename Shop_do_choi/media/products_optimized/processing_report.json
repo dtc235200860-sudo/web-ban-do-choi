@@ -1,0 +1,142 @@
+[
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\gau bong\\bup-be-barbie.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\gau bong\\bup-be-barbie.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\gau bong\\gau-bong-Baby-teddy-trang.png",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\gau bong\\gau-bong-Baby-teddy-trang.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\gau bong\\gau-bong-MOM-long-xu.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\gau bong\\gau-bong-MOM-long-xu.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\gau bong\\mo-hinh-bup-be.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\gau bong\\mo-hinh-bup-be.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\gau bong\\mo-hinh-one-piece-nhan-vat-luffy-mat-cuoi-18cm-4.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\gau bong\\mo-hinh-one-piece-nhan-vat-luffy-mat-cuoi-18cm-4.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\gau bong\\mo-hinh-one-piece-nhan-vat-zoro.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\gau bong\\mo-hinh-one-piece-nhan-vat-zoro.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\sang tao\\ban-co-vua.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\sang tao\\ban-co-vua.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\sang tao\\bang-ve-tu-tinh-cho-be-thoai-mai-sang-tao.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\sang tao\\bang-ve-tu-tinh-cho-be-thoai-mai-sang-tao.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\sang tao\\dan-piano-electrict.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\sang tao\\dan-piano-electrict.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\sang tao\\dan-piano-yamaha-electrict.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\sang tao\\dan-piano-yamaha-electrict.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\sang tao\\do-choi-lap-ghep-ki-thuat-bang-go.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\sang tao\\do-choi-lap-ghep-ki-thuat-bang-go.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\sang tao\\khoi-rubick.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\sang tao\\khoi-rubick.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xe do choi\\RC-Off-road Truck.png",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xe do choi\\RC-Off-road Truck.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xe do choi\\xe-dieu-khien-rc.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xe do choi\\xe-dieu-khien-rc.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xe do choi\\xe-dieu-khien-tu-xa-sieu-xe-dep-022-1619080750-7c6f65-1-1-1200x1200.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xe do choi\\xe-dieu-khien-tu-xa-sieu-xe-dep-022-1619080750-7c6f65-1-1-1200x1200.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xep hinh\\Bandai-Tamashii-Nations-Metal-Structure-Kaitai-Shou-Ki MSN-04 Sazabi.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xep hinh\\Bandai-Tamashii-Nations-Metal-Structure-Kaitai-Shou-Ki MSN-04 Sazabi.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xep hinh\\bo-lap-rap-lego-tre-em-ninjago-legacy-tau-bay.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xep hinh\\bo-lap-rap-lego-tre-em-ninjago-legacy-tau-bay.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xep hinh\\lap_rap_lego_panlos_brick_12_trong_1_-_mo_hinh_pioneer_robot.jpg",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xep hinh\\lap_rap_lego_panlos_brick_12_trong_1_-_mo_hinh_pioneer_robot.jpg",
+    "method": "white-threshold",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xep hinh\\Mo-Hinh-Lap-Rap-MGEX-7701-Strike-Freedom-Midnight-Coating.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xep hinh\\Mo-Hinh-Lap-Rap-MGEX-7701-Strike-Freedom-Midnight-Coating.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  },
+  {
+    "source": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\ảnh đồ chơi\\xep hinh\\Mo-Hinh-Lap-Rap-Oberon-Mecha.webp",
+    "output": "D:\\DuAnPy\\Shop_do_choi\\Shop_do_choi\\media\\products_optimized\\xep hinh\\Mo-Hinh-Lap-Rap-Oberon-Mecha.jpg",
+    "method": "grabcut",
+    "width": 4096,
+    "height": 4096
+  }
+]

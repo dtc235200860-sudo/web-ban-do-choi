@@ -1,6 +1,6 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
-body { box-sizing: border-box; }
+body { box-sizing: border-box; margin: 0; padding: 0; }
 #app { height: 100%; display: flex; flex-direction: column; }
 .main-content { flex: 1; overflow-y: auto; }
 .toy-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
@@ -17,3 +17,81 @@ body { box-sizing: border-box; }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Reset default section spacing so layout is edge-to-edge */
+section { margin: 0; padding: 0; }
+
+
+/* Promo banner (full-bleed) */
+.promo-banner { margin: 0; padding: 0; }
+#/* Make banner full-bleed across the viewport */
+#banner-slider { position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw; width: 100vw; height: 320px; overflow: hidden; border-radius: 0; box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+#banner-slider .min-w-full { min-width: 100%; }
+#banner-slides { display: flex; height: 100%; }
+#/* Banner image sizing */
+#banner-slider img, #banner-slider .relative img { width: 100%; height: 320px; object-fit: cover; object-position: center center; border-radius: 0; transition: transform 0.25s ease; max-width: none; }
+#banner-slider img:hover { transform: scale(1.02); }
+#banner-dots { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 8px; }
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+	#banner-slider { height: 300px; }
+	.promo-banner { margin: 0; }
+}
+
+@media (min-width: 1280px) {
+	#banner-slider { height: 320px; }
+}
+
+/* Banner arrows */
+#banner-slider .banner-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.85); backdrop-filter: blur(6px); border-radius: 9999px; cursor: pointer; font-size: 24px; color: #333; border: none; }
+#banner-slider .banner-arrow.left { left: 12px; }
+#banner-slider .banner-arrow.right { right: 12px; }
+#banner-slider .banner-arrow:hover { transform: translateY(-50%) scale(1.05); }
+
+/* Dots style: make small translucent circles */
+#banner-dots button { width: 10px; height: 10px; border-radius: 9999px; border: none; }
+
+/* Remove injected slider arrows completely (hidden) */
+.banner-arrow { display: none !important; }
+
+/* Ensure no horizontal scroll and no extra gaps */
+html, body { overflow-x: hidden; }
+
+/* Hero layout fixes */
+.hero-section { width: 100%; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+/* Target hero height (reduced) */
+.hero-section { height: clamp(320px, 36vh, 380px); }
+.hero-inner { width: 100%; max-width: 1120px; padding: 0 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.hero-inner #hero-title { margin: 0; font-size: 2.6rem; line-height: 1.05; }
+.hero-inner #hero-subtitle { margin: 0; max-width: 900px; }
+.hero-inner .hero-cta { width: 100%; display: flex; justify-content: center; }
+.hero-inner .hero-cta button { min-width: 140px; }
+
+/* Tighten spacing around hero and slider */
+.promo-banner { margin: 0; padding: 0; }
+
+/* prevent the blurred background layer from scaling (avoid extra zoom) */
+#banner-slider .scale-110 { transform: none !important; }
+#banner-slider .blur-md { filter: blur(6px) !important; }
+
+@media (max-width: 1024px) {
+	.hero-section { height: clamp(300px, 44vh, 360px); }
+	.hero-inner #hero-title { font-size: 2rem; }
+	#banner-slider { height: 300px; }
+}
+
+@media (max-width: 520px) {
+	.hero-section { height: clamp(280px, 58vh, 340px); }
+	.hero-inner #hero-title { font-size: 1.4rem; }
+	.hero-inner #hero-subtitle { font-size: 0.95rem; }
+	#banner-slider { height: 260px; }
+}
+
+
+/* DESKTOP: keep hero and banner full width */
+@media (min-width: 992px) {
+  .hero-section { width: 100%; margin: 0; left: auto; right: auto; }
+  #banner-slider { position: relative; left: 50%; margin-left: -50vw; margin-right: -50vw; width: 100vw; height: 320px; }
+  #banner-slider img, #banner-slider .relative img { height: 320px; }
+}

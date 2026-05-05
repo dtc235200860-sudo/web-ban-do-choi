@@ -95,9 +95,9 @@ function createProductCard(p) {
           <p class="text-purple-600 font-bold text-lg">${money(priceNow)}</p>
         </div>
         <div class="flex gap-2 text-xs">
-          <button onclick="viewProduct('${p.__backendId}')" class="flex-1 py-2 bg-gray-100 rounded hover:bg-gray-200 transition">Chi Tiết</button>
-          <button onclick="addToWishlist('${p.__backendId}')" class="py-2 px-3 bg-red-100 text-red-600 rounded hover:bg-red-200 transition">❤️</button>
-          <button onclick="addToCart('${p.__backendId}')" class="flex-1 py-2 btn-primary text-white rounded">Thêm</button>
+          <button onclick="viewProduct('${p.backendId}')" class="flex-1 py-2 bg-gray-100 rounded hover:bg-gray-200 transition">Chi Tiết</button>
+          <button onclick="addToWishlist('${p.backendId}')" class="py-2 px-3 bg-red-100 text-red-600 rounded hover:bg-red-200 transition">❤️</button>
+          <button onclick="addToCart('${p.backendId}')" class="flex-1 py-2 btn-primary text-white rounded">Thêm</button>
         </div>
       </div>
     </div>`;
@@ -114,6 +114,12 @@ async function apiJson(path, { method = "GET", body } = {}) {
   const options = { method, headers: {} };
   if (body !== undefined) {
     options.headers["Content-Type"] = "application/json";
+    const csrfToken =
+      document.cookie
+        .split(";")
+        .find((c) => c.trim().startsWith("csrftoken="))
+        ?.split("=")[1] || "";
+    options.headers["X-CSRFToken"] = csrfToken;
     options.body = JSON.stringify(body);
   }
   const res = await fetch(path, options);
@@ -126,7 +132,9 @@ async function apiJson(path, { method = "GET", body } = {}) {
 async function refreshBanners() {
   try {
     const data = (await apiJson("/api/banners")) || [];
-    bannerUrls = Array.isArray(data) ? data.slice(0, 3) : [];
+    // Exclude any banner files that appear to be flash-sale images (filename contains 'flash')
+    const filtered = (Array.isArray(data) ? data : []).filter((u) => !/flash/i.test(String(u || "")));
+    bannerUrls = filtered.slice(0, 3);
   } catch {
     bannerUrls = [];
   }
@@ -155,9 +163,9 @@ function renderBannerSlider() {
       (url) => `
       <div class="min-w-full h-full flex-shrink-0 relative">
         <div class="absolute inset-0 bg-center bg-cover blur-md scale-110" style="background-image:url('${url}')"></div>
-        <div class="absolute inset-0 bg-black/10"></div>
+        <div class="absolute inset-0 bg-black/8"></div>
         <div class="relative z-10 w-full h-full flex items-center justify-center">
-          <img src="${url}" alt="Banner" class="max-w-full max-h-full object-contain" loading="lazy" />
+          <img src="${url}" alt="Banner" class="max-w-3xl w-full h-full object-cover rounded-2xl" loading="lazy" />
         </div>
       </div>`
     )
@@ -176,6 +184,22 @@ function renderBannerSlider() {
     wrap.addEventListener("mouseenter", () => stopBannerAutoplay());
     wrap.addEventListener("mouseleave", () => updateBannerAutoplay());
     wrap.dataset.bannerHoverBound = "1";
+  }
+
+  // inject arrows if not present
+  if (!wrap.querySelector('.banner-arrow.left')) {
+    const left = document.createElement('button');
+    left.className = 'banner-arrow left';
+    left.innerHTML = '&#x2039;';
+    left.onclick = () => bannerPrev();
+    wrap.appendChild(left);
+  }
+  if (!wrap.querySelector('.banner-arrow.right')) {
+    const right = document.createElement('button');
+    right.className = 'banner-arrow right';
+    right.innerHTML = '&#x203A;';
+    right.onclick = () => bannerNext();
+    wrap.appendChild(right);
   }
 }
 
@@ -215,6 +239,14 @@ function updateBannerAutoplay() {
 
 async function refreshProducts() {
   allProducts = (await apiJson("/api/products")) || [];
+  // Normalize ids and image fields for backward compatibility
+  allProducts = (allProducts || []).map((p) => {
+    const prod = { ...(p || {}) };
+    prod.backendId = String(prod.backendId || prod.__backendId || prod.id || prod.product || prod.product_id || "");
+    prod.__backendId = prod.__backendId || prod.backendId;
+    prod.image = prod.image || "";
+    return prod;
+  });
 }
 
 async function refreshCoupons() {
@@ -345,9 +377,9 @@ function displayFlashSale() {
 
 function addToWishlist(id) {
   if (!currentUser) return showPage("login");
-  const product = allProducts.find((p) => p.__backendId === id);
+  const product = allProducts.find((p) => p.backendId === id);
   if (!product) return;
-  if (!wishlist.some((w) => w.__backendId === id)) {
+  if (!wishlist.some((w) => w.backendId === id)) {
     wishlist.push(product);
     addNotification(`${product.name} đã được thêm vào danh sách yêu thích!`);
   } else {
@@ -357,7 +389,7 @@ function addToWishlist(id) {
 }
 
 function removeFromWishlist(id) {
-  wishlist = wishlist.filter((w) => w.__backendId !== id);
+  wishlist = wishlist.filter((w) => w.backendId !== id);
   displayWishlist();
   updateUI();
 }
@@ -381,8 +413,8 @@ function displayWishlist() {
         <h3 class="font-bold text-lg mb-2">${p.name}</h3>
         <p class="text-purple-600 font-bold text-lg mb-4">${money(discountedPrice(p))}</p>
         <div class="flex gap-2">
-          <button onclick="addToCart('${p.__backendId}')" class="flex-1 py-2 btn-primary text-white rounded text-sm">Thêm Vào Giỏ</button>
-          <button onclick="removeFromWishlist('${p.__backendId}')" class="py-2 px-3 bg-red-100 text-red-600 rounded hover:bg-red-200 transition">Xóa</button>
+            <button onclick="addToCart('${p.backendId}')" class="flex-1 py-2 btn-primary text-white rounded text-sm">Thêm Vào Giỏ</button>
+          <button onclick="removeFromWishlist('${p.backendId}')" class="py-2 px-3 bg-red-100 text-red-600 rounded hover:bg-red-200 transition">Xóa</button>
         </div>
       </div>
     </div>`
@@ -391,7 +423,7 @@ function displayWishlist() {
 }
 
 function viewProduct(id) {
-  const product = allProducts.find((p) => p.__backendId === id);
+  const product = allProducts.find((p) => p.backendId === id);
   if (!product) return;
 
   const detail = document.getElementById("product-detail-content");
@@ -430,9 +462,9 @@ function viewProduct(id) {
 
 function addToCart(id) {
   if (!currentUser) return showPage("login");
-  const product = allProducts.find((p) => p.__backendId === id);
+  const product = allProducts.find((p) => p.backendId === id);
   if (!product) return;
-  const existing = cart.find((i) => i.__backendId === id);
+  const existing = cart.find((i) => i.backendId === id);
   if (existing) existing.quantity++;
   else cart.push({ ...product, quantity: 1 });
   updateUI();
@@ -440,9 +472,9 @@ function addToCart(id) {
 
 function addToCartFromDetail(id) {
   const qty = parseInt(document.getElementById("detail-quantity").value || "1", 10) || 1;
-  const product = allProducts.find((p) => p.__backendId === id);
+  const product = allProducts.find((p) => p.backendId === id);
   if (!product) return;
-  const existing = cart.find((i) => i.__backendId === id);
+  const existing = cart.find((i) => i.backendId === id);
   if (existing) existing.quantity += qty;
   else cart.push({ ...product, quantity: qty });
   addNotification(`${product.name} x${qty} đã được thêm vào giỏ hàng`);
@@ -451,15 +483,15 @@ function addToCartFromDetail(id) {
 }
 
 function updateCartItem(id, quantity) {
-  const item = cart.find((i) => i.__backendId === id);
+  const item = cart.find((i) => i.backendId === id);
   if (!item) return;
   item.quantity = parseInt(quantity, 10);
-  if (item.quantity <= 0) cart = cart.filter((i) => i.__backendId !== id);
+  if (item.quantity <= 0) cart = cart.filter((i) => i.backendId !== id);
   updateUI();
 }
 
 function removeFromCart(id) {
-  cart = cart.filter((i) => i.__backendId !== id);
+  cart = cart.filter((i) => i.backendId !== id);
   updateUI();
 }
 
@@ -492,19 +524,21 @@ function displayCart() {
           return `
         <tr class="border-b py-4">
           <td class="py-4">
-            ${
-              String(item.image || "").startsWith("/media/")
-                ? `<img src="${item.image}" alt="${escapeHtml(item.name)}" class="inline-block w-12 h-12 object-contain align-middle mr-3 bg-white rounded" loading="lazy" />`
-                : `<span class="text-3xl mr-3 align-middle">${item.image || "🎁"}</span>`
-            }
+            ${(() => {
+              const src = String(item.image || "").trim();
+              const isUrl = src.startsWith("/media/") || src.startsWith("http") || /\.(png|jpe?g|webp)$/i.test(src);
+              return isUrl
+                ? `<img src="${src}" alt="${escapeHtml(item.name)}" class="inline-block w-12 h-12 object-contain align-middle mr-3 bg-white rounded" loading="lazy" />`
+                : `<span class="text-3xl mr-3 align-middle">${src || "🎁"}</span>`;
+            })()}
             <span class="align-middle">${item.name}</span>
           </td>
           <td class="text-center">${money(pNow)}</td>
           <td class="text-center">
-            <input type="number" value="${item.quantity}" min="1" onchange="updateCartItem('${item.__backendId}', this.value)" class="w-16 px-2 py-1 border rounded text-center">
+            <input type="number" value="${item.quantity}" min="1" onchange="updateCartItem('${item.backendId}', this.value)" class="w-16 px-2 py-1 border rounded text-center">
           </td>
           <td class="text-center font-bold">${money(pNow * item.quantity)}</td>
-          <td class="text-center"><button onclick="removeFromCart('${item.__backendId}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button></td>
+          <td class="text-center"><button onclick="removeFromCart('${item.backendId}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button></td>
         </tr>`;
         })
         .join("")}
@@ -522,6 +556,20 @@ function updateCartTotal() {
   document.getElementById("subtotal").textContent = subtotal.toLocaleString("vi-VN") + " đ";
   document.getElementById("discount-amount").textContent = "-" + discountAmount.toLocaleString("vi-VN") + " đ";
   document.getElementById("total").textContent = total.toLocaleString("vi-VN") + " đ";
+}
+
+function cancelOrder(id) {
+  (async () => {
+    try {
+      await apiJson(`/api/orders/${encodeURIComponent(id)}`, { method: "PUT", body: { status: "Hủy" } });
+      addNotification(`✅ Yêu cầu hủy đơn ${id} đã được gửi.`);
+      if (currentUser) await refreshOrders(currentUser.name);
+      updateUI();
+      showPage("orders");
+    } catch (err) {
+      addNotification(`❌ ${(err && err.message) || "Không thể hủy đơn"}`);
+    }
+  })();
 }
 
 function applyCoupon() {
@@ -550,15 +598,18 @@ function checkout() {
     const discount = parseFloat(sessionStorage.getItem("appliedDiscount") || "0") || 0;
 
     try {
-      const order = await apiJson("/api/orders", {
-        method: "POST",
-        body: {
-          user: currentUser.name,
-          items: JSON.parse(JSON.stringify(cart)),
-          paymentMethod,
-          discount,
-        },
-      });
+      // sanitize payload and validate client-side
+      const rawItems = JSON.parse(JSON.stringify(cart || []));
+      const items = rawItems.map((it) => ({ backendId: it.backendId || it.__backendId || it.id, quantity: Number(it.quantity || 1) }));
+      for (const it of items) {
+        if (!it.backendId) return addNotification("❌ Có sản phẩm thiếu mã. Vui lòng kiểm tra giỏ hàng.");
+        if (!Number.isFinite(it.quantity) || it.quantity <= 0) return addNotification("❌ Số lượng không hợp lệ trong giỏ hàng.");
+      }
+      if (!["cod", "bank", "wallet"].includes(paymentMethod)) return addNotification("❌ Phương thức thanh toán không hợp lệ.");
+
+      const payload = { user: currentUser.name, items, paymentMethod, discount };
+      console.debug("checkout payload:", payload);
+      const order = await apiJson("/api/orders", { method: "POST", body: payload });
       cart = [];
       sessionStorage.removeItem("appliedDiscount");
       await refreshProducts();
@@ -595,6 +646,7 @@ function displayOrders() {
         <div><p class="text-gray-600 text-sm">Thanh Toán</p><p class="font-bold">${order.paymentMethod === "cod" ? "COD" : order.paymentMethod === "bank" ? "Chuyển khoản" : "Ví"}</p></div>
         <div><p class="text-gray-600 text-sm">Tổng Tiền</p><p class="font-bold text-purple-600">${money(order.total)}</p></div>
       </div>
+      ${order.status === "Chờ xác nhận" ? `<div class="flex gap-2"><button onclick="cancelOrder('${order.id}')" class="py-2 px-3 bg-red-100 text-red-600 rounded hover:bg-red-200 transition">Hủy đơn</button></div>` : ""}
     </div>`
       )
       .join("");
@@ -624,26 +676,42 @@ function updateProfile(event) {
   addNotification("✅ Cập nhật thông tin cá nhân thành công!");
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   const email = document.getElementById("login-email").value.trim();
-  const name = email.split("@")[0] || "User";
-  currentUser = { email, name, phone: "", address: "" };
-  localStorage.setItem("currentUser", JSON.stringify(currentUser));
-  updateAuthUI();
-  showPage(email === "admin@toystore.com" ? "admin" : "home");
+  const password = document.getElementById("login-password").value.trim();
+  try {
+    const result = await apiJson("/api/auth/login/", {
+      method: "POST",
+      body: { email, password },
+    });
+    currentUser = result.user;
+    localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    updateAuthUI();
+    showPage(currentUser.role === "admin" ? "admin" : "home");
+  } catch (err) {
+    addNotification(`❌ ${err.message || "Sai email hoặc mật khẩu"}`);
+  }
 }
 
-function handleRegister(event) {
+async function handleRegister(event) {
   event.preventDefault();
   const email = document.getElementById("register-email").value.trim();
   const name = document.getElementById("register-name").value.trim();
-  currentUser = { email, name, phone: "", address: "" };
-  localStorage.setItem("currentUser", JSON.stringify(currentUser));
-  allUsers.push(currentUser);
-  updateAuthUI();
-  addNotification(`Chào mừng ${name}! Đăng ký thành công.`);
-  showPage("home");
+  const password = document.getElementById("register-password").value.trim();
+  try {
+    const result = await apiJson("/api/auth/register/", {
+      method: "POST",
+      body: { email, name, password },
+    });
+    currentUser = result.user;
+    localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    updateAuthUI();
+    addNotification(`Chào mừng ${name}! Đăng ký thành công.`);
+    showPage("home");
+  } catch (err) {
+    addNotification(`❌ ${err.message || "Đăng ký thất bại"}`);
+  }
 }
 
 function logout() {
@@ -745,7 +813,7 @@ function adminSubmitProduct() {
 }
 
 function adminEditProduct(id) {
-  const p = allProducts.find((x) => x.__backendId === id);
+  const p = allProducts.find((x) => x.backendId === id);
   if (!p) return;
   adminEditingProductId = id;
   document.getElementById("admin-product-name").value = String(p.name || "");
@@ -773,7 +841,7 @@ function adminCancelEditProduct() {
 
 function adminUpdateProduct(id) {
   (async () => {
-    const base = allProducts.find((x) => x.__backendId === id);
+    const base = allProducts.find((x) => x.backendId === id);
     if (!base) return addNotification("❌ Không tìm thấy sản phẩm để sửa");
 
     const name = document.getElementById("admin-product-name").value.trim();
@@ -802,8 +870,8 @@ function adminDeleteProduct(id) {
     try {
       await apiJson(`/api/products/${encodeURIComponent(id)}`, { method: "DELETE" });
       await refreshProducts();
-      wishlist = wishlist.filter((w) => w.__backendId !== id);
-      cart = cart.filter((c) => c.__backendId !== id);
+      wishlist = wishlist.filter((w) => w.backendId !== id);
+      cart = cart.filter((c) => c.backendId !== id);
       addNotification("✅ Xóa sản phẩm thành công!");
       updateAdminProducts();
       updateUI();
@@ -831,8 +899,8 @@ function updateAdminProducts() {
               <td class="px-4 py-2">⭐ ${Number(p.rating || 0).toFixed(1)}</td>
               <td class="px-4 py-2 text-center">
                 <div class="flex gap-3 justify-center">
-                  <button onclick="adminEditProduct('${p.__backendId}')" class="text-blue-600 hover:text-blue-800 font-bold">Sửa</button>
-                  <button onclick="adminDeleteProduct('${p.__backendId}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button>
+                  <button onclick="adminEditProduct('${p.backendId}')" class="text-blue-600 hover:text-blue-800 font-bold">Sửa</button>
+                  <button onclick="adminDeleteProduct('${p.backendId}')" class="text-red-600 hover:text-red-800 font-bold">Xóa</button>
                 </div>
               </td>
             </tr>`
@@ -1639,13 +1707,16 @@ function tickCountdown() {
 
 function seedData() {
   allProducts = [
-    { __backendId: "p1", name: "Bộ Xếp Hình Lego Classic", price: 299000, category: "Xếp Hình", image: "🧱", stock: 50, rating: 4.8, reviews: 125, description: "Bộ xếp hình Lego cơ bản với 500 mảnh đa sắc màu", isSale: false, discount: 0, isFlashSale: true, tags: "bán chạy" },
-    { __backendId: "p2", name: "Xe Điều Khiển Tốc Độ", price: 189000, category: "Xe", image: "🏎️", stock: 30, rating: 4.6, reviews: 98, description: "Xe điều khiển từ xa 4 bánh, tốc độ tối đa 50km/h", isSale: true, discount: 15, isFlashSale: false, tags: "phổ biến" },
-    { __backendId: "p3", name: "Búp Bê Công Chúa", price: 249000, category: "Búp Bê", image: "👸", stock: 25, rating: 4.9, reviews: 156, description: "Búp bê công chúa với đầy đủ trang phục và phụ kiện", isSale: false, discount: 0, isFlashSale: false, tags: "bán chạy" },
-    { __backendId: "p4", name: "Bộ Thí Nghiệm Khoa Học", price: 359000, category: "Khoa Học", image: "🔬", stock: 20, rating: 4.7, reviews: 87, description: "Bộ thí nghiệm khoa học với 50 bài tập thú vị", isSale: false, discount: 0, isFlashSale: false, tags: "" },
-    { __backendId: "p5", name: "Xếp Hình 3D Toà Nhà", price: 189000, category: "Xếp Hình", image: "🏢", stock: 40, rating: 4.5, reviews: 64, description: "Xếp hình 3D tòa nhà nổi tiếng thế giới", isSale: true, discount: 10, isFlashSale: false, tags: "phổ biến" },
-    { __backendId: "p6", name: "Drone Tí Hon", price: 199000, category: "Xe", image: "🚁", stock: 15, rating: 4.4, reviews: 76, description: "Drone mini điều khiển từ xa có camera HD", isSale: true, discount: 20, isFlashSale: true, tags: "bán chạy" },
+    { backendId: "p1", name: "Bộ Xếp Hình Lego Classic", price: 299000, category: "Xếp Hình", image: "🧱", stock: 50, rating: 4.8, reviews: 125, description: "Bộ xếp hình Lego cơ bản với 500 mảnh đa sắc màu", isSale: false, discount: 0, isFlashSale: true, tags: "bán chạy" },
+    { backendId: "p2", name: "Xe Điều Khiển Tốc Độ", price: 189000, category: "Xe", image: "🏎️", stock: 30, rating: 4.6, reviews: 98, description: "Xe điều khiển từ xa 4 bánh, tốc độ tối đa 50km/h", isSale: true, discount: 15, isFlashSale: false, tags: "phổ biến" },
+    { backendId: "p3", name: "Búp Bê Công Chúa", price: 249000, category: "Búp Bê", image: "👸", stock: 25, rating: 4.9, reviews: 156, description: "Búp bê công chúa với đầy đủ trang phục và phụ kiện", isSale: false, discount: 0, isFlashSale: false, tags: "bán chạy" },
+    { backendId: "p4", name: "Bộ Thí Nghiệm Khoa Học", price: 359000, category: "Khoa Học", image: "🔬", stock: 20, rating: 4.7, reviews: 87, description: "Bộ thí nghiệm khoa học với 50 bài tập thú vị", isSale: false, discount: 0, isFlashSale: false, tags: "" },
+    { backendId: "p5", name: "Xếp Hình 3D Toà Nhà", price: 189000, category: "Xếp Hình", image: "🏢", stock: 40, rating: 4.5, reviews: 64, description: "Xếp hình 3D tòa nhà nổi tiếng thế giới", isSale: true, discount: 10, isFlashSale: false, tags: "phổ biến" },
+    { backendId: "p6", name: "Drone Tí Hon", price: 199000, category: "Xe", image: "🚁", stock: 15, rating: 4.4, reviews: 76, description: "Drone mini điều khiển từ xa có camera HD", isSale: true, discount: 20, isFlashSale: true, tags: "bán chạy" },
   ];
+
+  // normalize seed ids for legacy code
+  allProducts = allProducts.map((p) => ({ ...p, __backendId: p.__backendId || p.backendId }));
 
   allCoupons = [
     { code: "WELCOME10", discount: 10, maxUse: 100, used: 0 },
@@ -1677,6 +1748,9 @@ async function init() {
   } catch {
     seedData();
   }
+  try {
+    await refreshBanners();
+  } catch {}
   loadSavedUser();
   updateAuthUI();
   showPage("home");
@@ -1999,6 +2073,174 @@ function updateAdminReports() {
             })
             .join("")}
         </table>`;
+    }
+
+    // Charts (Chart.js) - only in Reports tab
+    if (typeof window !== "undefined" && window.Chart) {
+      const chartStore = (window.__adminReportCharts ||= {});
+      const destroyChart = (key) => {
+        const ch = chartStore[key];
+        if (ch && typeof ch.destroy === "function") ch.destroy();
+        delete chartStore[key];
+      };
+
+      const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { usePointStyle: true } },
+        },
+      };
+
+      // 1) Line chart - revenue by day in current month
+      destroyChart("revenueLine");
+      const revenueCanvas = document.getElementById("chart-revenue-line");
+      if (revenueCanvas) {
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const labels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
+        const revenueByDay = Array.from({ length: daysInMonth }, () => 0);
+        for (const o of allOrders) {
+          const dt = parseOrderDate(o.date);
+          if (!dt) continue;
+          if (dt.getFullYear() !== today.getFullYear() || dt.getMonth() !== today.getMonth()) continue;
+          const idx = dt.getDate() - 1;
+          revenueByDay[idx] += Number(o.total || 0);
+        }
+
+        chartStore.revenueLine = new window.Chart(revenueCanvas.getContext("2d"), {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Doanh thu (đ)",
+                data: revenueByDay,
+                borderColor: "#a855f7",
+                backgroundColor: "rgba(168,85,247,0.18)",
+                pointBackgroundColor: "#ec4899",
+                pointRadius: 2,
+                tension: 0.35,
+                fill: true,
+              },
+            ],
+          },
+          options: {
+            ...baseOptions,
+            plugins: {
+              ...baseOptions.plugins,
+              title: { display: true, text: "Doanh thu theo ngày trong tháng hiện tại" },
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => money(ctx.parsed.y),
+                },
+              },
+            },
+            scales: {
+              y: { ticks: { callback: (v) => (Number(v) ? `${Number(v).toLocaleString("vi-VN")}đ` : "0đ") } },
+              x: { title: { display: true, text: "Ngày" } },
+            },
+          },
+        });
+      }
+
+      // 2) Pie chart - order status ratio
+      destroyChart("orderStatusPie");
+      const statusCanvas = document.getElementById("chart-order-status-pie");
+      if (statusCanvas) {
+        chartStore.orderStatusPie = new window.Chart(statusCanvas.getContext("2d"), {
+          type: "pie",
+          data: {
+            labels: ["Đang xử lý", "Đã giao", "Hủy"],
+            datasets: [
+              {
+                data: [processing, shipped, cancelled],
+                backgroundColor: ["#a855f7", "#ec4899", "#ef4444"],
+                borderColor: "#ffffff",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            ...baseOptions,
+            plugins: {
+              ...baseOptions.plugins,
+              title: { display: true, text: "Tỉ lệ đơn hàng theo trạng thái" },
+            },
+          },
+        });
+      }
+
+      // 3) Bar chart - Top 5 products (reviews * rating)
+      destroyChart("topProductsBar");
+      const topCanvas = document.getElementById("chart-top-products-bar");
+      if (topCanvas) {
+        const top5 = [...allProducts]
+          .sort((a, b) => Number(b.reviews || 0) * Number(b.rating || 0) - Number(a.reviews || 0) * Number(a.rating || 0))
+          .slice(0, 5);
+        const labels = top5.map((p) => {
+          const name = String(getProductDisplayName(p) || "").trim();
+          return name.length > 22 ? name.slice(0, 22) + "…" : name;
+        });
+        const scores = top5.map((p) => Number(p.reviews || 0) * Number(p.rating || 0));
+
+        chartStore.topProductsBar = new window.Chart(topCanvas.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Điểm bán chạy (reviews × rating)",
+                data: scores,
+                backgroundColor: "rgba(236,72,153,0.55)",
+                borderColor: "#ec4899",
+                borderWidth: 2,
+                borderRadius: 8,
+              },
+            ],
+          },
+          options: {
+            ...baseOptions,
+            plugins: {
+              ...baseOptions.plugins,
+              title: { display: true, text: "Top 5 sản phẩm bán chạy nhất" },
+              legend: { display: false },
+            },
+            scales: {
+              x: { ticks: { maxRotation: 0, minRotation: 0 }, grid: { display: false } },
+              y: { beginAtZero: true },
+            },
+          },
+        });
+      }
+
+      // 4) Doughnut chart - inventory ratio
+      destroyChart("stockDoughnut");
+      const stockCanvas = document.getElementById("chart-stock-doughnut");
+      if (stockCanvas) {
+        chartStore.stockDoughnut = new window.Chart(stockCanvas.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: ["Hết hàng", "Sắp hết", "Vừa phải", "Dôi dư"],
+            datasets: [
+              {
+                data: [outStock.length, lowStock.length, normalStock.length, excessStock.length],
+                backgroundColor: ["#ef4444", "#f59e0b", "#a855f7", "#22c55e"],
+                borderColor: "#ffffff",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            ...baseOptions,
+            plugins: {
+              ...baseOptions.plugins,
+              title: { display: true, text: "Tỉ lệ tồn kho" },
+            },
+            cutout: "62%",
+          },
+        });
+      }
     }
   })();
 }

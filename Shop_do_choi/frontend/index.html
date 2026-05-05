@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ToyLand - Cửa Hàng Đồ Chơi</title>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <link rel="stylesheet" href="css/style.css" />
     <script src="js/script.js" defer></script>
   </head>
@@ -54,15 +55,27 @@
 
       <div class="main-content w-full">
         <div id="home-page" class="page fade-in">
-          <div class="bg-gradient-to-r from-purple-600 via-pink-500 to-blue-500 text-white py-20 px-4">
-            <div class="max-w-7xl mx-auto text-center">
-              <h2 id="hero-title" class="text-5xl font-bold mb-4">Thế Giới Đồ Chơi Kỳ Diệu</h2>
-              <p id="hero-subtitle" class="text-xl mb-8 opacity-90">Khám phá hàng ngàn sản phẩm đồ chơi chất lượng cao cho trẻ em</p>
-              <button onclick="showPage('products')" class="px-8 py-3 bg-white text-purple-600 font-bold rounded-lg hover:shadow-lg transition">Mua Ngay</button>
+          <!-- Hero section: full-width, centered content -->
+          <div class="hero-section bg-gradient-to-r from-purple-600 via-pink-500 to-blue-500 text-white">
+            <div class="max-w-7xl mx-auto hero-inner">
+              <h2 id="hero-title" class="text-5xl font-bold">Thế Giới Đồ Chơi Kỳ Diệu</h2>
+              <p id="hero-subtitle" class="text-xl opacity-90">Khám phá hàng ngàn sản phẩm đồ chơi chất lượng cao cho trẻ em</p>
+              <div class="hero-cta">
+                <button onclick="showPage('products')" class="px-8 py-3 bg-white text-purple-600 font-bold rounded-lg hover:shadow-lg transition">Mua Ngay</button>
+              </div>
             </div>
           </div>
 
-          <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white py-6 px-4 flash-sale-badge">
+          
+            <!-- Promo banner inserted between Hero and Flash Sale -->
+            <section class="promo-banner">
+              <div id="banner-slider" class="w-full overflow-hidden hidden">
+                <div id="banner-slides" class="flex h-full transition-transform duration-500 will-change-transform"></div>
+              </div>
+              <div id="banner-dots" class="flex gap-2 justify-center mt-3"></div>
+            </section>
+
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white py-6 px-4 flash-sale-badge">
             <div class="max-w-7xl mx-auto text-center">
               <h3 class="text-3xl font-bold mb-2">⚡ FLASH SALE - Giảm Đến 50%</h3>
               <button onclick="showPage('flashsale')" class="px-6 py-2 bg-white text-orange-600 font-bold rounded-lg hover:shadow-lg transition">Xem Ngay</button>
@@ -425,6 +438,36 @@
                     <div class="bg-purple-50 p-4 rounded-lg text-center border-l-4 border-purple-600">
                       <p class="text-gray-600 text-sm">Hoàn Tất %</p>
                       <p id="order-completion" class="text-2xl font-bold">0%</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-bold mb-4 text-purple-700">📈 Doanh Thu Theo Ngày (Tháng Này)</h3>
+                    <div class="relative h-72">
+                      <canvas id="chart-revenue-line" class="w-full h-full"></canvas>
+                    </div>
+                  </div>
+
+                  <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-bold mb-4 text-pink-700">🥧 Tỉ Lệ Đơn Hàng Theo Trạng Thái</h3>
+                    <div class="relative h-72">
+                      <canvas id="chart-order-status-pie" class="w-full h-full"></canvas>
+                    </div>
+                  </div>
+
+                  <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-bold mb-4 text-purple-700">🏆 Top 5 Sản Phẩm Bán Chạy</h3>
+                    <div class="relative h-72">
+                      <canvas id="chart-top-products-bar" class="w-full h-full"></canvas>
+                    </div>
+                  </div>
+
+                  <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-bold mb-4 text-pink-700">🍩 Tỉ Lệ Tồn Kho</h3>
+                    <div class="relative h-72">
+                      <canvas id="chart-stock-doughnut" class="w-full h-full"></canvas>
                     </div>
                   </div>
                 </div>
