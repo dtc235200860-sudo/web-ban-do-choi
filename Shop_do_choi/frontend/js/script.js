@@ -1650,17 +1650,75 @@ function getChatbotResponse(message) {
   return "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)";
 }
 
-function sendChatMessage() {
+async function sendChatMessage() {
   const input = document.getElementById("chat-input");
   const message = input.value.trim();
   if (!message) return;
   addChatMessage("user", message);
   input.value = "";
-  setTimeout(() => {
-    const res = getChatbotResponse(message);
+
+  // Keep existing rule-based logic first
+  const res = getChatbotResponse(message);
+
+  // Exact default fallback text from rule-based engine — when returned, call backend AI
+  const DEFAULT_FALLBACK =
+    "Bạn muốn hỏi về: chất liệu & độ tuổi, tư vấn quà tặng, mã giảm giá, đặt hàng/thanh toán, vận chuyển hay bảo hành? (Bạn gửi thêm độ tuổi bé hoặc tên sản phẩm để mình trả lời chính xác hơn.)";
+
+  if (typeof res === "string" && res === DEFAULT_FALLBACK) {
+    const loadingText = "🤖 AI đang suy nghĩ...";
+    // show loading message (persisted so we can replace it)
+    addChatMessage("bot", loadingText);
+
+    try {
+      const historyForApi = (chatHistory || []).map((h) => ({ sender: h.sender, text: h.text }));
+      let payload = null;
+      try {
+        payload = await apiJson("/api/gemini-chat/", { method: "POST", body: { message, history: historyForApi } });
+      } catch (err) {
+        // fallback to alternate endpoint if available
+        payload = await apiJson("/api/chat/gemini/", { method: "POST", body: { message, history: historyForApi } });
+      }
+
+      const reply = (payload && (payload.reply || payload.text || String(payload))) || "";
+
+      // replace loading entry in chatHistory
+      for (let i = chatHistory.length - 1; i >= 0; i--) {
+        if (chatHistory[i].sender === "bot" && chatHistory[i].text === loadingText) {
+          chatHistory[i].text = reply;
+          chatHistory[i].html = false;
+          break;
+        }
+      }
+      saveChatHistory();
+
+      // re-render messages from history without double-persisting
+      const messagesDiv = document.getElementById("chat-messages");
+      if (messagesDiv) {
+        messagesDiv.innerHTML = "";
+        for (const m of chatHistory) addChatMessage(m.sender, m.text, { html: !!m.html, persist: false });
+      }
+    } catch (err) {
+      // show error in place of loading
+      const errText = "Không thể kết nối AI.";
+      for (let i = chatHistory.length - 1; i >= 0; i--) {
+        if (chatHistory[i].sender === "bot" && chatHistory[i].text === loadingText) {
+          chatHistory[i].text = errText;
+          chatHistory[i].html = false;
+          break;
+        }
+      }
+      saveChatHistory();
+      const messagesDiv = document.getElementById("chat-messages");
+      if (messagesDiv) {
+        messagesDiv.innerHTML = "";
+        for (const m of chatHistory) addChatMessage(m.sender, m.text, { html: !!m.html, persist: false });
+      }
+    }
+  } else {
+    // local rule-based response
     if (typeof res === "string") addChatMessage("bot", res, { html: false });
     else addChatMessage("bot", res.text, { html: !!res.html });
-  }, 300);
+  }
 }
 
 function handleChatKeypress(event) {
